@@ -13,28 +13,19 @@ body{
  display:flex;
  justify-content:center;
  font-family:Segoe UI,sans-serif;
- overflow-x:hidden;
- overflow-y:auto;
- -webkit-overflow-scrolling:touch;
+ background:linear-gradient(140deg,#0f2027,#203a43,#2c5364);
  color:#e5eaf0;
- transition:background 1s,filter .4s;
 }
-body.day.clear{background:linear-gradient(140deg,#0f2027,#203a43,#2c5364)}
-body.day.cloudy{background:linear-gradient(140deg,#232526,#414345)}
-body.day.rain{background:linear-gradient(140deg,#141e30,#243b55)}
-body.night{background:linear-gradient(180deg,#000,#0b0c10)}
-
 .app{
  width:100%;
  max-width:420px;
  padding:16px;
  margin:20px 0;
- backdrop-filter:blur(26px);
  background:rgba(10,15,20,.65);
+ backdrop-filter:blur(26px);
  border-radius:30px;
  box-shadow:0 30px 60px rgba(0,0,0,.8);
 }
-
 .card{
  margin-bottom:14px;
  padding:16px;
@@ -43,13 +34,7 @@ body.night{background:linear-gradient(180deg,#000,#0b0c10)}
 }
 .center{text-align:center}
 .temp{font-size:48px;font-weight:bold;color:#fff}
-.icon{font-size:64px}
-
-.grid{
- display:grid;
- grid-template-columns:1fr 1fr;
- gap:12px
-}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .box{
  padding:12px;
  border-radius:14px;
@@ -57,9 +42,6 @@ body.night{background:linear-gradient(180deg,#000,#0b0c10)}
  text-align:center;
  font-size:13px
 }
-
-canvas{width:100%;height:150px}
-
 input,button{
  width:100%;
  padding:12px;
@@ -69,13 +51,23 @@ input,button{
 }
 input{background:rgba(255,255,255,.1);color:#fff}
 button{background:#1f6feb;color:#fff;margin-top:6px}
-
+.hourly-list{max-height:260px;overflow-y:auto}
+.hour{
+ display:flex;
+ justify-content:space-between;
+ padding:8px 12px;
+ margin-bottom:6px;
+ border-radius:12px;
+ background:rgba(0,0,0,.25);
+ font-size:14px
+}
+.hour.min{border-left:4px solid #00c853}
+.hour.max{border-left:4px solid #ff5252}
 footer{text-align:center;font-size:12px;opacity:.7}
 </style>
 </head>
 
-<body class="day clear">
-
+<body>
 <div class="app">
 
 <div class="card center"><h2>Climix</h2></div>
@@ -86,32 +78,38 @@ footer{text-align:center;font-size:12px;opacity:.7}
 </div>
 
 <div class="card center">
-<div class="icon" id="icon">⛅</div>
 <div class="temp" id="temp">--°C</div>
-<div id="desc"></div>
 <div id="place"></div>
 </div>
 
-<!-- LOCATION CONDITIONS -->
+<div class="card center" id="alertsCard">
+<h4>⚠️ Weather Alerts</h4>
+<div id="alertsText">Checking conditions…</div>
+</div>
+
+<div class="card">
+<h4>🌧️ Precipitation & Rain</h4>
+<div class="grid" id="rainBox"></div>
+</div>
+
 <div class="card">
 <h4>📍 Location Conditions</h4>
 <div class="grid" id="locationBox"></div>
 </div>
 
-<!-- AQI CONDITIONS -->
 <div class="card">
 <h4>🌫️ Air Quality (AQI)</h4>
 <div class="grid" id="aqiBox"></div>
 </div>
 
 <div class="card">
-<h4>Hourly Temperature</h4>
-<canvas id="tChart"></canvas>
+<h4>🌡️ Hourly Temperature (24h)</h4>
+<div id="hourlyTemps" class="hourly-list"></div>
 </div>
 
-<div class="card">
-<h4>AQI Trend</h4>
-<canvas id="aqiChart"></canvas>
+<div class="card center">
+<h4>🕒 24-Hour Temperature Summary</h4>
+<div class="grid" id="tempSummary"></div>
 </div>
 
 <footer>© Manik Roy 2025. All Rights Reserved.</footer>
@@ -132,16 +130,15 @@ function search(){
 }
 
 function loadWeather(lat,lon,name){
- fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,pressure_msl,apparent_temperature,winddirection_10m&timezone=auto`)
+ fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,pressure_msl,apparent_temperature,winddirection_10m,precipitation,precipitation_probability&timezone=auto`)
  .then(r=>r.json())
  .then(d=>{
   temp.innerText=d.current_weather.temperature+"°C";
-  icon.innerText="⛅";
-  desc.innerText="Live Conditions";
   place.innerText=name;
-
   renderLocation(d,lat,lon);
-  draw(d.hourly.temperature_2m,tChart);
+  renderHourlyTemp(d.hourly);
+  detectHeatwave(d.hourly.temperature_2m.slice(0,24));
+  renderRain(d.hourly);
   loadAQI(lat,lon);
  });
 }
@@ -152,13 +149,60 @@ function renderLocation(d,lat,lon){
  <div class="box">Longitude<br><b>${lon.toFixed(2)}</b></div>
  <div class="box">Elevation<br><b>${d.elevation} m</b></div>
  <div class="box">Timezone<br><b>${d.timezone}</b></div>
+ <div class="box">Temperature<br><b>${d.current_weather.temperature}°C</b></div>
  <div class="box">Feels Like<br><b>${d.hourly.apparent_temperature[0]}°C</b></div>
  <div class="box">Humidity<br><b>${d.hourly.relative_humidity_2m[0]}%</b></div>
  <div class="box">Pressure<br><b>${d.hourly.pressure_msl[0]} hPa</b></div>
- <div class="box">Wind Dir<br><b>${d.hourly.winddirection_10m[0]}°</b></div>
- <div class="box">Temperature<br><b>${d.current_weather.temperature}°C</b></div>
  <div class="box">Wind Speed<br><b>${d.current_weather.windspeed} km/h</b></div>
- `;
+ <div class="box">Wind Dir<br><b>${d.hourly.winddirection_10m[0]}°</b></div>`;
+}
+
+function renderHourlyTemp(h){
+ const temps=h.temperature_2m.slice(0,24);
+ const times=h.time.slice(0,24);
+ const min=Math.min(...temps);
+ const max=Math.max(...temps);
+ const avg=(temps.reduce((a,b)=>a+b,0)/24).toFixed(1);
+
+ hourlyTemps.innerHTML="";
+ temps.forEach((t,i)=>{
+  const time=new Date(times[i]).toLocaleTimeString([],{
+   hour:'2-digit',minute:'2-digit'
+  });
+  hourlyTemps.innerHTML+=`
+   <div class="hour ${t===min?'min':''} ${t===max?'max':''}">
+    <span>${time}</span><span>${t}°C</span>
+   </div>`;
+ });
+
+ tempSummary.innerHTML=`
+ <div class="box">Min<br><b>${min}°C</b></div>
+ <div class="box">Max<br><b>${max}°C</b></div>
+ <div class="box">Average<br><b>${avg}°C</b></div>`;
+}
+
+function detectHeatwave(temps){
+ const max=Math.max(...temps);
+ let msg="No heat alerts 🌤️";
+ if(max>=45) msg="🚨 Severe Heatwave – Stay Indoors";
+ else if(max>=42) msg="🔥 Heatwave – Avoid Sun";
+ else if(max>=38) msg="⚠️ Heat Alert – Stay Hydrated";
+ alertsText.innerHTML=`Max Temp (24h): <b>${max}°C</b><br>${msg}`;
+}
+
+function renderRain(h){
+ const rain=h.precipitation[0];
+ const prob=h.precipitation_probability[0];
+ let status="No Rain";
+ if(rain>0 && rain<=2) status="Light Rain";
+ else if(rain>2 && rain<=7) status="Moderate Rain";
+ else if(rain>7) status="Heavy Rain";
+
+ rainBox.innerHTML=`
+ <div class="box">Rain<br><b>${rain} mm</b></div>
+ <div class="box">Probability<br><b>${prob}%</b></div>
+ <div class="box">Intensity<br><b>${status}</b></div>
+ <div class="box">Next Hour<br><b>${prob>50?"Likely":"Unlikely"}</b></div>`;
 }
 
 function loadAQI(lat,lon){
@@ -176,47 +220,13 @@ function loadAQI(lat,lon){
    <div class="box">SO₂<br><b>${a.hourly.sulphur_dioxide[0]}</b></div>
    <div class="box">O₃<br><b>${a.hourly.ozone[0]}</b></div>
    <div class="box">Health<br><b>${aqiAdvice(v)}</b></div>
-   <div class="box">Risk<br><b>${aqiRisk(v)}</b></div>
-  `;
-  draw(a.hourly.us_aqi,aqiChart);
+   <div class="box">Risk<br><b>${aqiRisk(v)}</b></div>`;
  });
 }
 
-function draw(data,c){
- const x=c.getContext("2d");
- c.width=320;c.height=150;
- x.clearRect(0,0,320,150);
- const m=Math.min(...data),M=Math.max(...data);
- x.beginPath();
- data.slice(0,24).forEach((v,i)=>{
-  const X=i*(320/23);
-  const Y=150-((v-m)/(M-m||1))*150;
-  i?x.lineTo(X,Y):x.moveTo(X,Y);
- });
- x.strokeStyle="#1f6feb";
- x.lineWidth=2;
- x.stroke();
-}
-
-function aqiCat(v){
- if(v<=50) return "Good";
- if(v<=100) return "Moderate";
- if(v<=150) return "Unhealthy (S)";
- if(v<=200) return "Unhealthy";
- return "Hazardous";
-}
-function aqiAdvice(v){
- if(v<=50) return "Safe";
- if(v<=100) return "Sensitive avoid long exposure";
- if(v<=150) return "Wear mask";
- return "Stay indoors";
-}
-function aqiRisk(v){
- if(v<=50) return "Low";
- if(v<=100) return "Medium";
- if(v<=150) return "High";
- return "Severe";
-}
+function aqiCat(v){return v<=50?"Good":v<=100?"Moderate":v<=150?"Unhealthy(S)":"Hazardous"}
+function aqiAdvice(v){return v<=50?"Safe":v<=100?"Sensitive Care":"Wear Mask"}
+function aqiRisk(v){return v<=50?"Low":v<=100?"Medium":"High"}
 </script>
 </body>
 </html>
