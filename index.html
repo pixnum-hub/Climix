@@ -6,126 +6,66 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#000">
 <style>
-*{margin:0;padding:0;box-sizing:border-box;}
+*{margin:0;padding:0;box-sizing:border-box}
 body{
  min-height:100vh;
- font-family:Segoe UI,sans-serif;
- background:#000;
- color:#fff;
  display:flex;
  justify-content:center;
- overflow-y:auto; /* allow scrolling on mobile */
- transition: background .6s, filter .6s;
+ font-family:Segoe UI,sans-serif;
+ overflow:hidden;
+ transition:background .6s,filter .6s;
 }
 body.dark{background:#000;}
-#weatherCanvas{
- position:fixed; top:0; left:0;
- width:100%; height:100%; z-index:0;
-}
+#weatherCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;}
 .app{
  position:relative;
  z-index:2;
  width:100%;
  max-width:420px;
- padding:12px;
- margin:12px 0;
+ padding:16px;
+ margin:20px 0;
  background:rgba(10,15,20,.65);
  backdrop-filter:blur(26px);
  border-radius:30px;
- box-shadow:0 20px 40px rgba(0,0,0,.8);
- display:flex;
- flex-direction:column;
+ box-shadow:0 30px 60px rgba(0,0,0,.8);
+ transition:background .6s,box-shadow .6s;
 }
-body.dark .app{background:rgba(0,0,0,.85);}
-.card{
- margin-bottom:8px;
- padding:12px;
- border-radius:22px;
- background:rgba(20,25,30,.55);
- flex-shrink:0;
- transition: background .6s;
-}
+body.dark .app{background:rgba(0,0,0,.85);box-shadow:none;}
+.card{margin-bottom:14px;padding:16px;border-radius:22px;background:rgba(20,25,30,.55);transition:background .6s;}
 body.dark .card{background:rgba(20,20,20,.8);}
-.center{text-align:center;}
-.temp{font-size:40px;font-weight:bold;color:#fff;}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.box{
- padding:10px;
- border-radius:12px;
- background:rgba(0,0,0,.3);
- text-align:center;
- font-size:12px;
-}
+.center{text-align:center}
+.temp{font-size:48px;font-weight:bold;color:#fff}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.box{padding:12px;border-radius:14px;background:rgba(0,0,0,.3);text-align:center;font-size:13px;}
 body.dark .box{background:rgba(0,0,0,.2);}
-input,button{
- width:100%;
- padding:10px;
- border-radius:12px;
- border:none;
- font-size:14px;
-}
+input,button{width:100%;padding:12px;border-radius:14px;border:none;font-size:16px;}
 input{background:rgba(255,255,255,.1);color:#fff;}
 body.dark input{background:rgba(255,255,255,.08);}
-button{background:#1f6feb;color:#fff;margin-top:4px;}
+button{background:#1f6feb;color:#fff;margin-top:6px;}
 body.dark button{background:#222;color:#fff;}
-.hourly-list{
- max-height:25vh; /* internal scroll */
- overflow-y:auto;
-}
-.hour{
- display:flex;
- justify-content:space-between;
- padding:6px 10px;
- margin-bottom:4px;
- border-radius:10px;
- background:rgba(0,0,0,.25);
- font-size:12px;
-}
-.hour.min{border-left:3px solid #00c853;}
-.hour.max{border-left:3px solid #ff5252;}
-footer{text-align:center;font-size:11px;opacity:.7;margin-top:6px;}
+.hourly-list{max-height:260px;overflow-y:auto}
+.hour{display:flex;justify-content:space-between;padding:8px 12px;margin-bottom:6px;border-radius:12px;background:rgba(0,0,0,.25);font-size:14px;}
+.hour.min{border-left:4px solid #00c853;}
+.hour.max{border-left:4px solid #ff5252;}
+footer{text-align:center;font-size:12px;opacity:.7;}
 </style>
 </head>
 <body>
 <canvas id="weatherCanvas"></canvas>
 <div class="app">
- <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
-   <button id="modeBtn" onclick="toggleMode()" style="width:40px;height:40px;border-radius:50%;font-size:16px">🌙</button>
- </div>
- <div class="card center"><h2>Climix</h2></div>
- <div class="card">
-   <input id="city" placeholder="Enter city">
-   <button onclick="search()">Search</button>
- </div>
- <div class="card center">
-   <div class="temp" id="temp">--°C</div>
-   <div id="place"></div>
- </div>
- <div class="card center" id="alertsCard">
-   <h4>⚠️ Weather Alerts</h4>
-   <div id="alertsText">Checking conditions…</div>
- </div>
- <div class="card">
-   <h4>🌧️ Precipitation & Rain</h4>
-   <div class="grid" id="rainBox"></div>
- </div>
- <div class="card">
-   <h4>📍 Location Conditions</h4>
-   <div class="grid" id="locationBox"></div>
- </div>
- <div class="card">
-   <h4>🌫️ Air Quality (AQI)</h4>
-   <div class="grid" id="aqiBox"></div>
- </div>
- <div class="card">
-   <h4>🌡️ Hourly Temperature (24h)</h4>
-   <div id="hourlyTemps" class="hourly-list"></div>
- </div>
- <div class="card center">
-   <h4>🕒 24-Hour Temperature Summary</h4>
-   <div class="grid" id="tempSummary"></div>
- </div>
- <footer>© Manik Roy 2025. All Rights Reserved.</footer>
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+  <button id="modeBtn" onclick="toggleMode()" style="width:44px;height:44px;border-radius:50%;font-size:18px">🌙</button>
+</div>
+<div class="card center"><h2>Climix</h2></div>
+<div class="card"><input id="city" placeholder="Enter city"><button onclick="search()">Search</button></div>
+<div class="card center"><div class="temp" id="temp">--°C</div><div id="place"></div></div>
+<div class="card center" id="alertsCard"><h4>⚠️ Weather Alerts</h4><div id="alertsText">Checking conditions…</div></div>
+<div class="card"><h4>🌧️ Precipitation & Rain</h4><div class="grid" id="rainBox"></div></div>
+<div class="card"><h4>📍 Location Conditions</h4><div class="grid" id="locationBox"></div></div>
+<div class="card"><h4>🌫️ Air Quality (AQI)</h4><div class="grid" id="aqiBox"></div></div>
+<div class="card"><h4>🌡️ Hourly Temperature (24h)</h4><div id="hourlyTemps" class="hourly-list"></div></div>
+<div class="card center"><h4>🕒 24-Hour Temperature Summary</h4><div class="grid" id="tempSummary"></div></div>
+<footer>© Manik Roy 2025. All Rights Reserved.</footer>
 </div>
 
 <script>
@@ -147,7 +87,6 @@ function search(){if(!city.value)return;
 }
 
 // WEATHER
-let currentWeatherType="Clear"; 
 function loadWeather(lat,lon,name){
  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,pressure_msl,apparent_temperature,winddirection_10m,precipitation,precipitation_probability&timezone=auto`)
  .then(r=>r.json()).then(d=>{
@@ -158,9 +97,7 @@ function loadWeather(lat,lon,name){
   detectHeatwave(d.hourly.temperature_2m.slice(0,24));
   renderRain(d.hourly);
   loadAQI(lat,lon);
-  currentWeatherType=weatherCodeToType(d.current_weather.weathercode);
   updateBackground(lat,lon);
-  updateWeatherCanvas();
  });
 }
 
@@ -239,17 +176,7 @@ function aqiCat(v){return v<=50?"Good":v<=100?"Moderate":v<=150?"Unhealthy(S)":"
 function aqiAdvice(v){return v<=50?"Safe":v<=100?"Sensitive Care":"Wear Mask"}
 function aqiRisk(v){return v<=50?"Low":v<=100?"Medium":"High"}
 
-// WEATHER TYPES
-function weatherCodeToType(code){
- if([0,1].includes(code)) return "Clear";
- if([2,3].includes(code)) return "Cloudy";
- if([51,53,55,61,63,65].includes(code)) return "Rain";
- if([71,73,75].includes(code)) return "Snow";
- if([95,96,99].includes(code)) return "Thunderstorm";
- return "Clear";
-}
-
-// BACKGROUND
+// BACKGROUND & ANIMATIONS
 function updateBackground(lat, lon){
  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset&timezone=auto`)
  .then(r=>r.json()).then(d=>{
@@ -268,41 +195,13 @@ function updateBackground(lat, lon){
  });
 }
 
-// WEATHER CANVAS
-const canvas=document.getElementById('weatherCanvas'); 
-const ctx=canvas.getContext('2d');
+// WEATHER CANVAS ANIMATION
+const canvas=document.getElementById('weatherCanvas'); const ctx=canvas.getContext('2d');
 function resizeCanvas(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
 window.addEventListener('resize',resizeCanvas); resizeCanvas();
-let particles=[];
-function initParticles(count){
- particles=[];
- for(let i=0;i<count;i++){
-  particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*2+1,s:Math.random()*2+3});
- }
-}
-function drawParticles(){
- ctx.clearRect(0,0,canvas.width,canvas.height);
- if(currentWeatherType==="Clear"){
-  for(let i=0;i<50;i++){
-   ctx.beginPath();
-   ctx.arc(Math.random()*canvas.width,Math.random()*canvas.height,Math.random()*1.5,0,2*Math.PI);
-   ctx.fillStyle='rgba(255,255,255,0.1)';
-   ctx.fill();
-  }
- } else particles.forEach(p=>{
-  ctx.beginPath();
-  if(currentWeatherType==="Rain") ctx.fillStyle='rgba(135,206,250,0.6)';
-  else if(currentWeatherType==="Snow") ctx.fillStyle='rgba(255,255,255,0.8)';
-  else if(currentWeatherType==="Cloudy") ctx.fillStyle='rgba(255,255,255,0.3)';
-  else if(currentWeatherType==="Thunderstorm") ctx.fillStyle='rgba(255,255,255,0.7)';
-  else ctx.fillStyle='rgba(255,255,255,0.5)';
-  ctx.arc(p.x,p.y,p.r,0,2*Math.PI);
-  ctx.fill();
-  p.y+=p.s;
-  if(p.y>canvas.height){p.y=0;p.x=Math.random()*canvas.width;}
- });
- requestAnimationFrame(drawParticles);
-}
+
+let particles=[]; function initParticles(count){particles=[];for(let i=0;i<count;i++){particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*2+1,s:Math.random()*2+1});}}
+function drawParticles(){ctx.clearRect(0,0,canvas.width,canvas.height);particles.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.7)';ctx.fill();p.y+=p.s;if(p.y>canvas.height){p.y=0;p.x=Math.random()*canvas.width;}}); requestAnimationFrame(drawParticles);}
 function updateWeatherCanvas(){initParticles(150); drawParticles();}
 </script>
 </body>
