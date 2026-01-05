@@ -5,7 +5,6 @@
 <title>Climix</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#000">
-
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{
@@ -15,6 +14,10 @@ body{
  font-family:Segoe UI,sans-serif;
  background:linear-gradient(140deg,#0f2027,#203a43,#2c5364);
  color:#e5eaf0;
+ transition:background .4s,filter .4s;
+}
+body.dark{
+ background:#000;
 }
 .app{
  width:100%;
@@ -25,13 +28,20 @@ body{
  backdrop-filter:blur(26px);
  border-radius:30px;
  box-shadow:0 30px 60px rgba(0,0,0,.8);
+ transition:background .4s,box-shadow .4s;
+}
+body.dark .app{
+ background:rgba(0,0,0,.85);
+ box-shadow:none;
 }
 .card{
  margin-bottom:14px;
  padding:16px;
  border-radius:22px;
  background:rgba(20,25,30,.55);
+ transition:background .4s;
 }
+body.dark .card{background:rgba(20,20,20,.8);}
 .center{text-align:center}
 .temp{font-size:48px;font-weight:bold;color:#fff}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -42,6 +52,7 @@ body{
  text-align:center;
  font-size:13px
 }
+body.dark .box{background:rgba(0,0,0,.2);}
 input,button{
  width:100%;
  padding:12px;
@@ -50,7 +61,9 @@ input,button{
  font-size:16px
 }
 input{background:rgba(255,255,255,.1);color:#fff}
+body.dark input{background:rgba(255,255,255,.08);}
 button{background:#1f6feb;color:#fff;margin-top:6px}
+body.dark button{background:#222;color:#fff;}
 .hourly-list{max-height:260px;overflow-y:auto}
 .hour{
  display:flex;
@@ -66,9 +79,13 @@ button{background:#1f6feb;color:#fff;margin-top:6px}
 footer{text-align:center;font-size:12px;opacity:.7}
 </style>
 </head>
-
 <body>
 <div class="app">
+
+<!-- DARK MODE TOGGLE -->
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+  <button id="modeBtn" onclick="toggleMode()" style="width:44px;height:44px;border-radius:50%;font-size:18px">🌙</button>
+</div>
 
 <div class="card center"><h2>Climix</h2></div>
 
@@ -118,17 +135,26 @@ footer{text-align:center;font-size:12px;opacity:.7}
 <script>
 window.onload=()=>loadWeather(28.6139,77.2090,"Delhi");
 
+// DARK MODE TOGGLE
+function toggleMode(){
+ document.body.classList.toggle("dark");
+ localStorage.setItem("mode",document.body.classList.contains("dark")?"dark":"light");
+ modeBtn.innerText=document.body.classList.contains("dark")?"☀️":"🌙";
+}
+if(localStorage.getItem("mode")==="dark"){
+ document.body.classList.add("dark");
+ modeBtn.innerText="☀️";
+}
+
+// SEARCH
 function search(){
  if(!city.value) return;
  fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city.value}`)
  .then(r=>r.json())
- .then(d=>{
-  if(!d.results) return;
-  const x=d.results[0];
-  loadWeather(x.latitude,x.longitude,x.name);
- });
+ .then(d=>{if(!d.results) return; const x=d.results[0]; loadWeather(x.latitude,x.longitude,x.name);});
 }
 
+// LOAD WEATHER
 function loadWeather(lat,lon,name){
  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,pressure_msl,apparent_temperature,winddirection_10m,precipitation,precipitation_probability&timezone=auto`)
  .then(r=>r.json())
@@ -143,6 +169,7 @@ function loadWeather(lat,lon,name){
  });
 }
 
+// LOCATION
 function renderLocation(d,lat,lon){
  locationBox.innerHTML=`
  <div class="box">Latitude<br><b>${lat.toFixed(2)}</b></div>
@@ -157,30 +184,24 @@ function renderLocation(d,lat,lon){
  <div class="box">Wind Dir<br><b>${d.hourly.winddirection_10m[0]}°</b></div>`;
 }
 
+// HOURLY + 24H SUMMARY
 function renderHourlyTemp(h){
  const temps=h.temperature_2m.slice(0,24);
  const times=h.time.slice(0,24);
  const min=Math.min(...temps);
  const max=Math.max(...temps);
  const avg=(temps.reduce((a,b)=>a+b,0)/24).toFixed(1);
-
  hourlyTemps.innerHTML="";
  temps.forEach((t,i)=>{
-  const time=new Date(times[i]).toLocaleTimeString([],{
-   hour:'2-digit',minute:'2-digit'
-  });
-  hourlyTemps.innerHTML+=`
-   <div class="hour ${t===min?'min':''} ${t===max?'max':''}">
-    <span>${time}</span><span>${t}°C</span>
-   </div>`;
+  const time=new Date(times[i]).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  hourlyTemps.innerHTML+=`<div class="hour ${t===min?'min':''} ${t===max?'max':''}"><span>${time}</span><span>${t}°C</span></div>`;
  });
-
- tempSummary.innerHTML=`
- <div class="box">Min<br><b>${min}°C</b></div>
+ tempSummary.innerHTML=`<div class="box">Min<br><b>${min}°C</b></div>
  <div class="box">Max<br><b>${max}°C</b></div>
  <div class="box">Average<br><b>${avg}°C</b></div>`;
 }
 
+// HEATWAVE ALERTS
 function detectHeatwave(temps){
  const max=Math.max(...temps);
  let msg="No heat alerts 🌤️";
@@ -190,6 +211,7 @@ function detectHeatwave(temps){
  alertsText.innerHTML=`Max Temp (24h): <b>${max}°C</b><br>${msg}`;
 }
 
+// RAIN / PRECIPITATION
 function renderRain(h){
  const rain=h.precipitation[0];
  const prob=h.precipitation_probability[0];
@@ -197,21 +219,19 @@ function renderRain(h){
  if(rain>0 && rain<=2) status="Light Rain";
  else if(rain>2 && rain<=7) status="Moderate Rain";
  else if(rain>7) status="Heavy Rain";
-
- rainBox.innerHTML=`
- <div class="box">Rain<br><b>${rain} mm</b></div>
+ rainBox.innerHTML=`<div class="box">Rain<br><b>${rain} mm</b></div>
  <div class="box">Probability<br><b>${prob}%</b></div>
  <div class="box">Intensity<br><b>${status}</b></div>
  <div class="box">Next Hour<br><b>${prob>50?"Likely":"Unlikely"}</b></div>`;
 }
 
+// AQI
 function loadAQI(lat,lon){
  fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi,pm2_5,pm10,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone`)
  .then(r=>r.json())
  .then(a=>{
   const v=a.hourly.us_aqi[0];
-  aqiBox.innerHTML=`
-   <div class="box">AQI<br><b>${v}</b></div>
+  aqiBox.innerHTML=`<div class="box">AQI<br><b>${v}</b></div>
    <div class="box">Category<br><b>${aqiCat(v)}</b></div>
    <div class="box">PM2.5<br><b>${a.hourly.pm2_5[0]}</b></div>
    <div class="box">PM10<br><b>${a.hourly.pm10[0]}</b></div>
@@ -223,7 +243,6 @@ function loadAQI(lat,lon){
    <div class="box">Risk<br><b>${aqiRisk(v)}</b></div>`;
  });
 }
-
 function aqiCat(v){return v<=50?"Good":v<=100?"Moderate":v<=150?"Unhealthy(S)":"Hazardous"}
 function aqiAdvice(v){return v<=50?"Safe":v<=100?"Sensitive Care":"Wear Mask"}
 function aqiRisk(v){return v<=50?"Low":v<=100?"Medium":"High"}
