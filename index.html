@@ -24,42 +24,41 @@ body.dark{background:#000;}
  width:100%;
  max-width:420px;
  height:100vh;
- padding:16px;
+ padding:12px;
  margin:0;
  background:rgba(10,15,20,.65);
  backdrop-filter:blur(26px);
  border-radius:30px;
- box-shadow:0 30px 60px rgba(0,0,0,.8);
+ box-shadow:0 20px 40px rgba(0,0,0,.8);
  display:flex;
  flex-direction:column;
- overflow:hidden;
- transition:background .6s,box-shadow .6s;
+ overflow:hidden; /* NO PAGE SCROLL */
 }
 body.dark .app{background:rgba(0,0,0,.85);box-shadow:none;}
-.card{margin-bottom:12px;padding:16px;border-radius:22px;background:rgba(20,25,30,.55);transition:background .6s;}
+.card{margin-bottom:8px;padding:12px;border-radius:22px;background:rgba(20,25,30,.55);flex-shrink:0;transition:background .6s;}
 body.dark .card{background:rgba(20,20,20,.8);}
 .center{text-align:center}
-.temp{font-size:48px;font-weight:bold;color:#fff}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.box{padding:12px;border-radius:14px;background:rgba(0,0,0,.3);text-align:center;font-size:13px;}
+.temp{font-size:40px;font-weight:bold;color:#fff}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.box{padding:10px;border-radius:12px;background:rgba(0,0,0,.3);text-align:center;font-size:12px;}
 body.dark .box{background:rgba(0,0,0,.2);}
-input,button{width:100%;padding:12px;border-radius:14px;border:none;font-size:16px;}
+input,button{width:100%;padding:10px;border-radius:12px;border:none;font-size:14px;}
 input{background:rgba(255,255,255,.1);color:#fff;}
 body.dark input{background:rgba(255,255,255,.08);}
-button{background:#1f6feb;color:#fff;margin-top:6px;}
+button{background:#1f6feb;color:#fff;margin-top:4px;}
 body.dark button{background:#222;color:#fff;}
-.hourly-list{max-height:200px;overflow-y:auto;}
-.hour{display:flex;justify-content:space-between;padding:8px 12px;margin-bottom:6px;border-radius:12px;background:rgba(0,0,0,.25);font-size:14px;}
-.hour.min{border-left:4px solid #00c853;}
-.hour.max{border-left:4px solid #ff5252;}
-footer{text-align:center;font-size:12px;opacity:.7;margin-top:auto;}
+.hourly-list{max-height:25vh;overflow-y:auto;}
+.hour{display:flex;justify-content:space-between;padding:6px 10px;margin-bottom:4px;border-radius:10px;background:rgba(0,0,0,.25);font-size:12px;}
+.hour.min{border-left:3px solid #00c853;}
+.hour.max{border-left:3px solid #ff5252;}
+footer{text-align:center;font-size:11px;opacity:.7;margin-top:auto;}
 </style>
 </head>
 <body>
 <canvas id="weatherCanvas"></canvas>
 <div class="app">
-<div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-  <button id="modeBtn" onclick="toggleMode()" style="width:44px;height:44px;border-radius:50%;font-size:18px">🌙</button>
+<div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+  <button id="modeBtn" onclick="toggleMode()" style="width:40px;height:40px;border-radius:50%;font-size:16px">🌙</button>
 </div>
 <div class="card center"><h2>Climix</h2></div>
 <div class="card"><input id="city" placeholder="Enter city"><button onclick="search()">Search</button></div>
@@ -92,7 +91,7 @@ function search(){if(!city.value)return;
 }
 
 // WEATHER
-let currentWeatherType="Clear"; // default
+let currentWeatherType="Clear"; 
 function loadWeather(lat,lon,name){
  fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,pressure_msl,apparent_temperature,winddirection_10m,precipitation,precipitation_probability&timezone=auto`)
  .then(r=>r.json()).then(d=>{
@@ -103,9 +102,7 @@ function loadWeather(lat,lon,name){
   detectHeatwave(d.hourly.temperature_2m.slice(0,24));
   renderRain(d.hourly);
   loadAQI(lat,lon);
-  // determine weather type
-  const w=d.current_weather.weathercode;
-  currentWeatherType=weatherCodeToType(w);
+  currentWeatherType=weatherCodeToType(d.current_weather.weathercode);
   updateBackground(lat,lon);
   updateWeatherCanvas();
  });
@@ -215,7 +212,7 @@ function updateBackground(lat, lon){
  });
 }
 
-// WEATHER CANVAS ANIMATION
+// WEATHER CANVAS
 const canvas=document.getElementById('weatherCanvas'); 
 const ctx=canvas.getContext('2d');
 function resizeCanvas(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
@@ -228,12 +225,9 @@ function initParticles(count){
   particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*2+1,s:Math.random()*2+3});
  }
 }
-
-// DRAW PARTICLES BASED ON WEATHER
 function drawParticles(){
  ctx.clearRect(0,0,canvas.width,canvas.height);
  if(currentWeatherType==="Clear"){
-  // subtle sparkles
   for(let i=0;i<50;i++){
    ctx.beginPath();
    ctx.arc(Math.random()*canvas.width,Math.random()*canvas.height,Math.random()*1.5,0,2*Math.PI);
