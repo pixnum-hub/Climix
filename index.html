@@ -4,53 +4,73 @@
 <meta charset="UTF-8">
 <title>Climix</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#0d47a1">
-
-<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
+
+/* ================= BASE ================= */
 body{
  min-height:100vh;
  display:flex;
  justify-content:center;
  font-family:Segoe UI,sans-serif;
- color:#fff;
- overflow:hidden;
- transition:background 1s;
+ overflow-x:hidden;
+ overflow-y:auto;
+ -webkit-overflow-scrolling:touch;
+ color:#e5eaf0;
+ transition:background 1.2s, filter .4s;
 }
-body.clear{background:linear-gradient(120deg,#f6d365,#fda085)}
-body.cloudy{background:linear-gradient(120deg,#89f7fe,#66a6ff)}
-body.rain{background:linear-gradient(120deg,#667db6,#0082c8)}
-body.storm{background:linear-gradient(120deg,#232526,#414345)}
 
+/* ================= WEATHER THEMES ================= */
+body.day.clear{background:linear-gradient(140deg,#0f2027,#203a43,#2c5364)}
+body.day.cloudy{background:linear-gradient(140deg,#232526,#414345)}
+body.day.rain{background:linear-gradient(140deg,#141e30,#243b55)}
+
+body.night{
+ background:linear-gradient(180deg,#000000,#0b0c10);
+}
+
+/* AQI adaptive overlay */
+body.aqi-good{box-shadow:inset 0 0 0 9999px rgba(0,255,200,.02)}
+body.aqi-moderate{box-shadow:inset 0 0 0 9999px rgba(255,200,0,.04)}
+body.aqi-poor{box-shadow:inset 0 0 0 9999px rgba(255,80,80,.06)}
+
+#effects{
+ position:fixed;
+ inset:0;
+ pointer-events:none;
+ z-index:1;
+}
+
+/* ================= APP FRAME ================= */
 .app{
  width:100%;
  max-width:420px;
  padding:16px;
- backdrop-filter:blur(20px);
- background:rgba(255,255,255,.15);
+ margin:20px 0;
+ backdrop-filter:blur(26px);
+ background:rgba(10,15,20,.65);
  border-radius:30px;
- box-shadow:0 20px 40px rgba(0,0,0,.4);
- z-index:2
+ box-shadow:
+  0 30px 60px rgba(0,0,0,.8),
+  inset 0 0 0 1px rgba(255,255,255,.05);
+ z-index:2;
 }
+
 .card{
  margin-bottom:14px;
  padding:16px;
  border-radius:22px;
- background:rgba(255,255,255,.18)
+ background:rgba(20,25,30,.55);
 }
+
 .center{text-align:center}
-.temp{font-size:48px;font-weight:bold}
+.temp{font-size:48px;font-weight:bold;color:#fff}
 .icon{font-size:64px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.box{
- padding:12px;
- border-radius:16px;
- background:rgba(0,0,0,.25);
- text-align:center
-}
+
 canvas{width:100%;height:150px}
+
 .week{display:flex;gap:12px;overflow-x:auto}
 .week div{
  min-width:80px;
@@ -59,6 +79,7 @@ canvas{width:100%;height:150px}
  background:rgba(0,0,0,.3);
  text-align:center
 }
+
 input,button{
  width:100%;
  padding:12px;
@@ -66,8 +87,17 @@ input,button{
  border:none;
  font-size:16px
 }
-button{background:#0d47a1;color:#fff;margin-top:6px}
+input{background:rgba(255,255,255,.1);color:#fff}
+button{background:#1f6feb;color:#fff;margin-top:6px}
 
+.slider{
+ width:100%;
+ margin-top:6px;
+}
+
+footer{text-align:center;font-size:12px;opacity:.7}
+
+/* ================= PARTICLES ================= */
 .particles span{
  position:absolute;
  width:2px;height:14px;
@@ -78,24 +108,10 @@ button{background:#0d47a1;color:#fff;margin-top:6px}
  from{transform:translateY(-20px)}
  to{transform:translateY(100vh)}
 }
-
-.cloud{
- position:absolute;
- width:120px;height:50px;
- background:rgba(255,255,255,.4);
- border-radius:50px;
- animation:cloud 40s linear infinite
-}
-@keyframes cloud{
- from{left:-150px}
- to{left:100%}
-}
-
-footer{text-align:center;font-size:12px;opacity:.7}
 </style>
 </head>
 
-<body class="clear">
+<body class="day clear">
 
 <div id="effects"></div>
 
@@ -113,6 +129,11 @@ footer{text-align:center;font-size:12px;opacity:.7}
 <div class="temp" id="temp">--°C</div>
 <div id="desc"></div>
 <div id="place"></div>
+</div>
+
+<div class="card">
+<label>Hue Intensity</label>
+<input type="range" min="80" max="120" value="100" class="slider" id="hue">
 </div>
 
 <div class="card">
@@ -136,11 +157,12 @@ footer{text-align:center;font-size:12px;opacity:.7}
 <script>
 window.onload=()=>{
  loadWeather(28.6139,77.2090,"Delhi");
- registerSW();
+ applyHue();
 };
 
-/* SEARCH */
+/* ================= SEARCH ================= */
 function search(){
+ if(!city.value) return;
  fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city.value}`)
  .then(r=>r.json())
  .then(d=>{
@@ -150,47 +172,69 @@ function search(){
  });
 }
 
-/* WEATHER */
+/* ================= WEATHER ================= */
 function loadWeather(lat,lon,name){
- fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`)
+ fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m&daily=temperature_2m_max,weathercode,sunrise,sunset&timezone=auto`)
  .then(r=>r.json())
  .then(d=>{
   temp.innerText=d.current_weather.temperature+"°C";
   icon.innerText=iconOf(d.current_weather.weathercode);
   desc.innerText=textOf(d.current_weather.weathercode);
   place.innerText=name;
-  setBG(d.current_weather.weathercode);
+
+  applyDayNight(d.daily.sunrise[0],d.daily.sunset[0]);
   draw(d.hourly.temperature_2m,tChart);
   weekly(d.daily);
   loadAQI(lat,lon);
  });
 }
 
-/* AQI + ALERT */
+/* ================= AQI ================= */
 function loadAQI(lat,lon){
  fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi`)
  .then(r=>r.json())
  .then(a=>{
   draw(a.hourly.us_aqi,aqiChart);
-  const v=a.hourly.us_aqi[0];
-  if(Notification.permission==="granted" && v>100){
-   new Notification("Air Quality Alert",{body:"AQI: "+v});
-  }
+  applyAQIColor(a.hourly.us_aqi[0]);
  });
 }
 
-/* WEEK */
+/* ================= VISUAL LOGIC ================= */
+function applyDayNight(sr,ss){
+ const now=Date.now();
+ document.body.classList.toggle("night", now<new Date(sr) || now>new Date(ss));
+ document.body.classList.toggle("day", !(now<new Date(sr) || now>new Date(ss)));
+}
+
+function applyAQIColor(v){
+ document.body.classList.remove("aqi-good","aqi-moderate","aqi-poor");
+ if(v<=50) document.body.classList.add("aqi-good");
+ else if(v<=100) document.body.classList.add("aqi-moderate");
+ else document.body.classList.add("aqi-poor");
+}
+
+/* ================= HUE SLIDER ================= */
+hue.oninput=()=>{
+ localStorage.hue=hue.value;
+ applyHue();
+};
+function applyHue(){
+ const v=localStorage.hue||100;
+ document.body.style.filter=`saturate(${v}%)`;
+ hue.value=v;
+}
+
+/* ================= WEEK ================= */
 function weekly(d){
  week.innerHTML="";
  d.time.forEach((t,i)=>{
   week.innerHTML+=`
    <div>${new Date(t).toLocaleDateString("en",{weekday:"short"})}<br>
-   ${iconOf(d.weathercode[i])}<br>
-   ${d.temperature_2m_max[i]}°</div>`;
+   ${iconOf(d.weathercode[i])}<br>${d.temperature_2m_max[i]}°</div>`;
  });
 }
 
-/* CHART */
+/* ================= CHART ================= */
 function draw(data,c){
  const x=c.getContext("2d");
  c.width=320;c.height=150;
@@ -202,50 +246,12 @@ function draw(data,c){
   const Y=150-((v-m)/(M-m||1))*150;
   i?x.lineTo(X,Y):x.moveTo(X,Y);
  });
- x.strokeStyle="#00e5ff";
+ x.strokeStyle="#1f6feb";
  x.lineWidth=2;
  x.stroke();
 }
 
-/* BACKGROUND + PARTICLES */
-function setBG(c){
- document.body.className=c==0?"clear":c<4?"cloudy":c<70?"rain":"storm";
- const e=document.getElementById("effects");
- e.innerHTML="";
- if(c<70 && c>=4){
-  for(let i=0;i<80;i++){
-   const s=document.createElement("span");
-   s.style.left=Math.random()*100+"%";
-   s.style.animationDelay=Math.random()+"s";
-   e.appendChild(s);
-  }
- }
- if(c<4){
-  const cl=document.createElement("div");
-  cl.className="cloud";
-  cl.style.top="60px";
-  e.appendChild(cl);
- }
-}
-
-/* SERVICE WORKER */
-function registerSW(){
- if("serviceWorker" in navigator){
-  const sw=`
-   self.addEventListener("fetch",e=>{
-    e.respondWith(caches.open("climix")
-     .then(c=>c.match(e.request)
-     .then(r=>r||fetch(e.request).then(res=>{
-      c.put(e.request,res.clone());return res;
-     }))))
-   });
-  `;
-  const blob=new Blob([sw],{type:"text/javascript"});
-  navigator.serviceWorker.register(URL.createObjectURL(blob));
- }
-}
-
-/* HELPERS */
+/* ================= HELPERS ================= */
 function iconOf(c){return c==0?"☀":c<4?"⛅":c<70?"🌧":"🌩";}
 function textOf(c){return c==0?"Clear":c<4?"Cloudy":c<70?"Rain":"Storm";}
 </script>
