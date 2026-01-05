@@ -4,205 +4,233 @@
 <meta charset="UTF-8">
 <title>Climix</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#000">
+<meta name="theme-color" content="#2196f3">
+
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{
+ font-family:Segoe UI,sans-serif;
  min-height:100vh;
  display:flex;
  justify-content:center;
- font-family:Segoe UI,sans-serif;
- overflow:hidden;
- transition:background .6s,filter .6s;
+ background:linear-gradient(160deg,#2193b0,#6dd5ed);
+ color:#fff
 }
-body.dark{background:#000;}
-#weatherCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;}
 .app{
- position:relative;
- z-index:2;
  width:100%;
  max-width:420px;
  padding:16px;
- margin:20px 0;
- background:rgba(10,15,20,.65);
- backdrop-filter:blur(26px);
  border-radius:30px;
- box-shadow:0 30px 60px rgba(0,0,0,.8);
- transition:background .6s,box-shadow .6s;
+ backdrop-filter:blur(18px);
+ background:rgba(255,255,255,.15);
+ box-shadow:0 20px 40px rgba(0,0,0,.3)
 }
-body.dark .app{background:rgba(0,0,0,.85);box-shadow:none;}
-.card{margin-bottom:14px;padding:16px;border-radius:22px;background:rgba(20,25,30,.55);transition:background .6s;}
-body.dark .card{background:rgba(20,20,20,.8);}
+.card{
+ margin-bottom:14px;
+ padding:16px;
+ border-radius:22px;
+ background:rgba(255,255,255,.18)
+}
 .center{text-align:center}
-.temp{font-size:48px;font-weight:bold;color:#fff}
+.icon{font-size:64px}
+.temp{font-size:48px;font-weight:bold}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.box{padding:12px;border-radius:14px;background:rgba(0,0,0,.3);text-align:center;font-size:13px;}
-body.dark .box{background:rgba(0,0,0,.2);}
-input,button{width:100%;padding:12px;border-radius:14px;border:none;font-size:16px;}
-input{background:rgba(255,255,255,.1);color:#fff;}
-body.dark input{background:rgba(255,255,255,.08);}
-button{background:#1f6feb;color:#fff;margin-top:6px;}
-body.dark button{background:#222;color:#fff;}
-.hourly-list{max-height:260px;overflow-y:auto}
-.hour{display:flex;justify-content:space-between;padding:8px 12px;margin-bottom:6px;border-radius:12px;background:rgba(0,0,0,.25);font-size:14px;}
-.hour.min{border-left:4px solid #00c853;}
-.hour.max{border-left:4px solid #ff5252;}
-footer{text-align:center;font-size:12px;opacity:.7;}
+.box{
+ padding:12px;
+ border-radius:16px;
+ background:rgba(0,0,0,.15);
+ text-align:center
+}
+canvas{width:100%;height:160px}
+.week-scroll{display:flex;gap:12px;overflow-x:auto}
+.week-card{
+ min-width:80px;
+ padding:10px;
+ border-radius:16px;
+ text-align:center;
+ background:linear-gradient(135deg,#42a5f5,#478ed1)
+}
+input,button{
+ width:100%;
+ padding:12px;
+ border-radius:14px;
+ border:none;
+ font-size:16px
+}
+button{background:#2196f3;color:#fff;margin-top:6px}
+footer{text-align:center;font-size:12px;opacity:.7}
 </style>
 </head>
+
 <body>
-<canvas id="weatherCanvas"></canvas>
 <div class="app">
-<div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-  <button id="modeBtn" onclick="toggleMode()" style="width:44px;height:44px;border-radius:50%;font-size:18px">🌙</button>
+
+<div class="card center">
+  <h2>Climix</h2>
 </div>
-<div class="card center"><h2>Climix</h2></div>
-<div class="card"><input id="city" placeholder="Enter city"><button onclick="search()">Search</button></div>
-<div class="card center"><div class="temp" id="temp">--°C</div><div id="place"></div></div>
-<div class="card center" id="alertsCard"><h4>⚠️ Weather Alerts</h4><div id="alertsText">Checking conditions…</div></div>
-<div class="card"><h4>🌧️ Precipitation & Rain</h4><div class="grid" id="rainBox"></div></div>
-<div class="card"><h4>📍 Location Conditions</h4><div class="grid" id="locationBox"></div></div>
-<div class="card"><h4>🌫️ Air Quality (AQI)</h4><div class="grid" id="aqiBox"></div></div>
-<div class="card"><h4>🌡️ Hourly Temperature (24h)</h4><div id="hourlyTemps" class="hourly-list"></div></div>
-<div class="card center"><h4>🕒 24-Hour Temperature Summary</h4><div class="grid" id="tempSummary"></div></div>
-<footer>© Manik Roy 2025. All Rights Reserved.</footer>
+
+<div class="card">
+  <input id="city" placeholder="Enter city">
+  <button onclick="search()">Search</button>
+</div>
+
+<div class="card center">
+  <div class="icon" id="icon">⛅</div>
+  <div class="temp" id="temp">--°C</div>
+  <div id="desc">Loading…</div>
+  <div id="place"></div>
+</div>
+
+<div id="features"></div>
+
+<div class="card">
+  <h4>Hourly Temperature</h4>
+  <canvas id="tChart"></canvas>
+</div>
+
+<div class="card">
+  <h4>Hourly Rain</h4>
+  <canvas id="rChart"></canvas>
+</div>
+
+<div class="card">
+  <h4>Weekly Forecast</h4>
+  <div class="week-scroll" id="week"></div>
+</div>
+
+<footer>© Climix 2025. All Rights Reserved.</footer>
 </div>
 
 <script>
-// INITIAL CITY
-window.onload=()=>loadWeather(28.6139,77.2090,"Delhi");
+let currentLat,currentLon;
 
-// DARK MODE
-function toggleMode(){
- document.body.classList.toggle("dark");
- localStorage.setItem("mode",document.body.classList.contains("dark")?"dark":"light");
- modeBtn.innerText=document.body.classList.contains("dark")?"☀️":"🌙";
+/* ---------- INIT ---------- */
+window.onload=()=>{
+  loadWeather(28.6139,77.2090,"Delhi"); // always loads
+};
+
+/* ---------- SEARCH ---------- */
+function search(){
+ const c=document.getElementById("city").value;
+ if(!c) return;
+ fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(c)}`)
+ .then(r=>r.json())
+ .then(d=>{
+   if(!d.results) return alert("City not found");
+   const x=d.results[0];
+   loadWeather(x.latitude,x.longitude,x.name);
+ });
 }
-if(localStorage.getItem("mode")==="dark"){document.body.classList.add("dark");modeBtn.innerText="☀️";}
 
-// SEARCH
-function search(){if(!city.value)return;
- fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city.value}`)
- .then(r=>r.json()).then(d=>{if(!d.results)return; const x=d.results[0]; loadWeather(x.latitude,x.longitude,x.name);});
-}
-
-// WEATHER
+/* ---------- WEATHER ---------- */
 function loadWeather(lat,lon,name){
- fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,pressure_msl,apparent_temperature,winddirection_10m,precipitation,precipitation_probability&timezone=auto`)
- .then(r=>r.json()).then(d=>{
-  temp.innerText=d.current_weather.temperature+"°C";
-  place.innerText=name;
-  renderLocation(d,lat,lon);
-  renderHourlyTemp(d.hourly);
-  detectHeatwave(d.hourly.temperature_2m.slice(0,24));
-  renderRain(d.hourly);
-  loadAQI(lat,lon);
-  updateBackground(lat,lon);
+ currentLat=lat;currentLon=lon;
+ fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,precipitation_probability,humidity_2m&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`)
+ .then(r=>r.json())
+ .then(d=>{
+   localStorage.weather=JSON.stringify(d);
+   renderWeather(d,name);
+   renderWeekly(d.daily);
+   loadAQI(lat,lon);
  });
 }
 
-// LOCATION
-function renderLocation(d,lat,lon){
- locationBox.innerHTML=`
- <div class="box">Latitude<br><b>${lat.toFixed(2)}</b></div>
- <div class="box">Longitude<br><b>${lon.toFixed(2)}</b></div>
- <div class="box">Elevation<br><b>${d.elevation} m</b></div>
- <div class="box">Timezone<br><b>${d.timezone}</b></div>
- <div class="box">Temperature<br><b>${d.current_weather.temperature}°C</b></div>
- <div class="box">Feels Like<br><b>${d.hourly.apparent_temperature[0]}°C</b></div>
- <div class="box">Humidity<br><b>${d.hourly.relative_humidity_2m[0]}%</b></div>
- <div class="box">Pressure<br><b>${d.hourly.pressure_msl[0]} hPa</b></div>
- <div class="box">Wind Speed<br><b>${d.current_weather.windspeed} km/h</b></div>
- <div class="box">Wind Dir<br><b>${d.hourly.winddirection_10m[0]}°</b></div>`;
-}
+function renderWeather(d,name){
+ const temp=typeof d.current_weather?.temperature==="number"
+  ? d.current_weather.temperature
+  : d.hourly.temperature_2m[0];
 
-// HOURLY & 24H
-function renderHourlyTemp(h){
- const temps=h.temperature_2m.slice(0,24);
- const times=h.time.slice(0,24);
- const min=Math.min(...temps), max=Math.max(...temps);
- const avg=(temps.reduce((a,b)=>a+b,0)/24).toFixed(1);
- hourlyTemps.innerHTML="";
- temps.forEach((t,i)=>{
-  const time=new Date(times[i]).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-  hourlyTemps.innerHTML+=`<div class="hour ${t===min?'min':''} ${t===max?'max':''}"><span>${time}</span><span>${t}°C</span></div>`;
+ const code=d.current_weather.weathercode;
+ document.getElementById("temp").innerText=temp+"°C";
+ document.getElementById("icon").innerText=iconOf(code);
+ document.getElementById("desc").innerText=textOf(code);
+ document.getElementById("place").innerText=name;
+
+ drawChart(d.hourly.temperature_2m,"tChart");
+ drawChart(d.hourly.precipitation_probability,"rChart");
+
+ const f=[
+  ["Latitude",currentLat.toFixed(2)],
+  ["Longitude",currentLon.toFixed(2)],
+  ["Humidity",d.hourly.humidity_2m[0]+"%"],
+  ["Weather",textOf(code)]
+ ];
+
+ const container=document.getElementById("features");
+ container.innerHTML="";
+ const card=document.createElement("div");
+ card.className="card grid";
+ f.forEach(x=>{
+  const b=document.createElement("div");
+  b.className="box";
+  b.innerHTML=`${x[0]}<br><b>${x[1]}</b>`;
+  card.appendChild(b);
  });
- tempSummary.innerHTML=`<div class="box">Min<br><b>${min}°C</b></div>
- <div class="box">Max<br><b>${max}°C</b></div>
- <div class="box">Average<br><b>${avg}°C</b></div>`;
+ container.appendChild(card);
 }
 
-// HEATWAVE
-function detectHeatwave(temps){
- const max=Math.max(...temps);
- let msg="No heat alerts 🌤️";
- if(max>=45) msg="🚨 Severe Heatwave – Stay Indoors";
- else if(max>=42) msg="🔥 Heatwave – Avoid Sun";
- else if(max>=38) msg="⚠️ Heat Alert – Stay Hydrated";
- alertsText.innerHTML=`Max Temp (24h): <b>${max}°C</b><br>${msg}`;
-}
-
-// RAIN
-function renderRain(h){
- const rain=h.precipitation[0]; const prob=h.precipitation_probability[0];
- let status="No Rain";
- if(rain>0&&rain<=2) status="Light Rain"; else if(rain>2&&rain<=7) status="Moderate Rain"; else if(rain>7) status="Heavy Rain";
- rainBox.innerHTML=`<div class="box">Rain<br><b>${rain} mm</b></div>
- <div class="box">Probability<br><b>${prob}%</b></div>
- <div class="box">Intensity<br><b>${status}</b></div>
- <div class="box">Next Hour<br><b>${prob>50?"Likely":"Unlikely"}</b></div>`;
-}
-
-// AQI
+/* ---------- AQI (REAL) ---------- */
 function loadAQI(lat,lon){
- fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi,pm2_5,pm10,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone`)
- .then(r=>r.json()).then(a=>{
-  const v=a.hourly.us_aqi[0];
-  window.currentAQI=v;
-  aqiBox.innerHTML=`<div class="box">AQI<br><b>${v}</b></div>
-   <div class="box">Category<br><b>${aqiCat(v)}</b></div>
-   <div class="box">PM2.5<br><b>${a.hourly.pm2_5[0]}</b></div>
-   <div class="box">PM10<br><b>${a.hourly.pm10[0]}</b></div>
-   <div class="box">CO<br><b>${a.hourly.carbon_monoxide[0]}</b></div>
-   <div class="box">NO₂<br><b>${a.hourly.nitrogen_dioxide[0]}</b></div>
-   <div class="box">SO₂<br><b>${a.hourly.sulphur_dioxide[0]}</b></div>
-   <div class="box">O₃<br><b>${a.hourly.ozone[0]}</b></div>
-   <div class="box">Health<br><b>${aqiAdvice(v)}</b></div>
-   <div class="box">Risk<br><b>${aqiRisk(v)}</b></div>`;
-  updateBackground(lat,lon); updateWeatherCanvas();
- });
-}
-function aqiCat(v){return v<=50?"Good":v<=100?"Moderate":v<=150?"Unhealthy(S)":"Hazardous"}
-function aqiAdvice(v){return v<=50?"Safe":v<=100?"Sensitive Care":"Wear Mask"}
-function aqiRisk(v){return v<=50?"Low":v<=100?"Medium":"High"}
-
-// BACKGROUND & ANIMATIONS
-function updateBackground(lat, lon){
- fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset&timezone=auto`)
- .then(r=>r.json()).then(d=>{
-    const now=new Date();
-    const sunrise=new Date(d.daily.sunrise[0]);
-    const sunset=new Date(d.daily.sunset[0]);
-    let gradient=(now>=sunrise&&now<=sunset)?"linear-gradient(140deg,#3a7bd5,#00d2ff,#74ebd5)":"linear-gradient(140deg,#0f2027,#203a43,#2c5364)";
-    const aqiVal=window.currentAQI||50;
-    let overlay="rgba(0,0,0,.4)";
-    if(aqiVal<=50) overlay="rgba(0,0,0,.3)";
-    else if(aqiVal<=100) overlay="rgba(255,255,0,.2)";
-    else if(aqiVal<=150) overlay="rgba(255,140,0,.2)";
-    else overlay="rgba(255,0,0,.2)";
-    document.body.style.background=gradient;
-    document.querySelector(".app").style.background=overlay;
+ fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=pm2_5,pm10,us_aqi`)
+ .then(r=>r.json())
+ .then(a=>{
+   const v=a.hourly.us_aqi[0];
+   const card=document.createElement("div");
+   card.className="card grid";
+   card.innerHTML=`
+    <div class="box">AQI<br><b>${v}</b></div>
+    <div class="box">PM2.5<br><b>${a.hourly.pm2_5[0]}</b></div>
+    <div class="box">PM10<br><b>${a.hourly.pm10[0]}</b></div>
+    <div class="box">Health<br><b>${aqiAdvice(v)}</b></div>
+   `;
+   document.getElementById("features").appendChild(card);
  });
 }
 
-// WEATHER CANVAS ANIMATION
-const canvas=document.getElementById('weatherCanvas'); const ctx=canvas.getContext('2d');
-function resizeCanvas(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
-window.addEventListener('resize',resizeCanvas); resizeCanvas();
+/* ---------- WEEKLY ---------- */
+function renderWeekly(d){
+ const w=document.getElementById("week");
+ w.innerHTML="";
+ d.time.forEach((t,i)=>{
+  const c=document.createElement("div");
+  c.className="week-card";
+  c.innerHTML=`
+   <div>${new Date(t).toLocaleDateString("en",{weekday:"short"})}</div>
+   <div style="font-size:28px">${iconOf(d.weathercode[i])}</div>
+   <div>${d.temperature_2m_max[i]}° / ${d.temperature_2m_min[i]}°</div>
+  `;
+  w.appendChild(c);
+ });
+}
 
-let particles=[]; function initParticles(count){particles=[];for(let i=0;i<count;i++){particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*2+1,s:Math.random()*2+1});}}
-function drawParticles(){ctx.clearRect(0,0,canvas.width,canvas.height);particles.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,0.7)';ctx.fill();p.y+=p.s;if(p.y>canvas.height){p.y=0;p.x=Math.random()*canvas.width;}}); requestAnimationFrame(drawParticles);}
-function updateWeatherCanvas(){initParticles(150); drawParticles();}
+/* ---------- CHART ---------- */
+function drawChart(data,id){
+ const c=document.getElementById(id);
+ const x=c.getContext("2d");
+ c.width=320;c.height=160;
+ x.clearRect(0,0,320,160);
+ const m=Math.min(...data),M=Math.max(...data);
+ x.beginPath();
+ data.slice(0,24).forEach((v,i)=>{
+  const X=i*(320/23);
+  const Y=160-((v-m)/(M-m||1))*160;
+  i?x.lineTo(X,Y):x.moveTo(X,Y);
+ });
+ x.strokeStyle="#00e5ff";
+ x.lineWidth=2;
+ x.stroke();
+}
+
+/* ---------- HELPERS ---------- */
+function iconOf(c){return c==0?"☀":c<4?"⛅":c<70?"🌧":"🌩";}
+function textOf(c){return c==0?"Clear":c<4?"Cloudy":c<70?"Rain":"Storm";}
+function aqiAdvice(v){
+ if(v<=50) return "Good";
+ if(v<=100) return "Moderate";
+ if(v<=150) return "Unhealthy (Sensitive)";
+ if(v<=200) return "Unhealthy";
+ return "Hazardous";
+}
 </script>
 </body>
 </html>
