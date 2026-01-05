@@ -24,8 +24,8 @@ body.dark{background:#000}
  padding:14px;
  margin:14px;
  border-radius:28px;
- background:rgba(12,18,30,.72);
- backdrop-filter:blur(28px);
+ background:rgba(12,18,30,.75);
+ backdrop-filter:blur(26px);
  box-shadow:0 30px 70px rgba(0,0,0,.8);
 }
 body.dark .app{background:#000}
@@ -75,7 +75,6 @@ footer{text-align:center;font-size:12px;opacity:.65;margin-top:10px}
 <body>
 <div class="app">
 
-<!-- TOP CONTROLS -->
 <div class="topbar">
 <button id="modeBtn">🌙</button>
 <button id="installBtn" style="display:none">⬇️</button>
@@ -127,6 +126,9 @@ footer{text-align:center;font-size:12px;opacity:.65;margin-top:10px}
 </div>
 
 <script>
+/* FAILSAFE */
+window.onerror = () => alert("Data failed to load. Check internet.");
+
 /* DARK MODE */
 modeBtn.onclick=()=>{
  document.body.classList.toggle("dark");
@@ -170,19 +172,10 @@ function search(){
 
 /* WEATHER */
 async function loadWeather(lat,lon,name){
- const r=await fetch(
- `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=
- temperature_2m,
- apparent_temperature,
- relative_humidity_2m,
- pressure_msl,
- windspeed_10m,
- winddirection_10m,
- precipitation,
- precipitation_probability
- &timezone=auto`
+ const r = await fetch(
+  `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,windspeed_10m,winddirection_10m,precipitation,precipitation_probability&timezone=auto`
  );
- const d=await r.json();
+ const d = await r.json();
 
  temp.innerText=d.current_weather.temperature+"°C";
  place.innerText=name;
@@ -213,7 +206,7 @@ function renderSummary(h){
  <div class="box">Avg<br><b>${(t.reduce((a,b)=>a+b,0)/24).toFixed(1)}°C</b></div>`;
 }
 
-/* HEATWAVE */
+/* HEAT */
 function detectHeat(t){
  let m=Math.max(...t),msg="Normal 🌤️";
  if(m>=45)msg="🚨 Severe Heatwave";
@@ -232,14 +225,14 @@ function renderRain(h){
  <div class="box">Next Hour<br><b>${p>50?"Likely":"Low"}</b></div>`;
 }
 
-/* LOCATION – 10 FEATURES */
+/* LOCATION (10) */
 function renderLocation(d,lat,lon){
  locationBox.innerHTML=`
  <div class="box">Latitude<br><b>${lat.toFixed(2)}</b></div>
  <div class="box">Longitude<br><b>${lon.toFixed(2)}</b></div>
  <div class="box">Elevation<br><b>${d.elevation} m</b></div>
  <div class="box">Timezone<br><b>${d.timezone}</b></div>
- <div class="box">Temperature<br><b>${d.current_weather.temperature}°C</b></div>
+ <div class="box">Temp<br><b>${d.current_weather.temperature}°C</b></div>
  <div class="box">Feels Like<br><b>${d.hourly.apparent_temperature[0]}°C</b></div>
  <div class="box">Humidity<br><b>${d.hourly.relative_humidity_2m[0]}%</b></div>
  <div class="box">Pressure<br><b>${d.hourly.pressure_msl[0]} hPa</b></div>
@@ -247,26 +240,17 @@ function renderLocation(d,lat,lon){
  <div class="box">Wind Dir<br><b>${d.hourly.winddirection_10m[0]}°</b></div>`;
 }
 
-/* AQI – 10 FEATURES */
+/* AQI (10) */
 function loadAQI(lat,lon){
- fetch(
- `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=
- us_aqi,
- pm2_5,
- pm10,
- ozone,
- nitrogen_dioxide,
- sulphur_dioxide,
- carbon_monoxide`
- )
+ fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide`)
  .then(r=>r.json())
  .then(a=>{
   const v=a.hourly.us_aqi[0];
   aqiBox.innerHTML=`
   <div class="box">AQI<br><b>${v}</b></div>
-  <div class="box">Category<br><b>${aqiCat(v)}</b></div>
-  <div class="box">Health<br><b>${aqiAdvice(v)}</b></div>
-  <div class="box">Risk<br><b>${aqiRisk(v)}</b></div>
+  <div class="box">Category<br><b>${v<=50?"Good":v<=100?"Moderate":v<=150?"Unhealthy(S)":"Hazardous"}</b></div>
+  <div class="box">Health<br><b>${v<=50?"Safe":v<=100?"Sensitive":"Limit Outdoor"}</b></div>
+  <div class="box">Risk<br><b>${v<=50?"Low":v<=100?"Medium":"High"}</b></div>
   <div class="box">PM2.5<br><b>${a.hourly.pm2_5[0]}</b></div>
   <div class="box">PM10<br><b>${a.hourly.pm10[0]}</b></div>
   <div class="box">O₃<br><b>${a.hourly.ozone[0]}</b></div>
@@ -275,12 +259,9 @@ function loadAQI(lat,lon){
   <div class="box">CO<br><b>${a.hourly.carbon_monoxide[0]}</b></div>`;
  });
 }
-function aqiCat(v){return v<=50?"Good":v<=100?"Moderate":v<=150?"Unhealthy (S)":"Hazardous"}
-function aqiAdvice(v){return v<=50?"Safe":v<=100?"Sensitive Care":"Limit Outdoor"}
-function aqiRisk(v){return v<=50?"Low":v<=100?"Medium":"High"}
 
 /* SERVICE WORKER */
-if("serviceWorker"in navigator){
+if("serviceWorker" in navigator){
  navigator.serviceWorker.register("sw.js");
 }
 </script>
