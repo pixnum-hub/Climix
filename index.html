@@ -24,7 +24,7 @@ body.dark{background:#000}
  padding:14px;
  margin:14px;
  border-radius:28px;
- background:rgba(12,18,30,.7);
+ background:rgba(12,18,30,.72);
  backdrop-filter:blur(28px);
  box-shadow:0 30px 70px rgba(0,0,0,.8);
 }
@@ -35,7 +35,7 @@ body.dark .app{background:#000}
  padding:14px;
  margin-bottom:12px;
 }
-body.dark .card{background:rgba(20,20,20,.85)}
+body.dark .card{background:rgba(20,20,20,.9)}
 .center{text-align:center}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .box{
@@ -53,7 +53,7 @@ input,button{
  font-size:15px;
 }
 input{background:rgba(255,255,255,.12);color:#fff}
-button{background:#1f6feb;color:#fff;font-weight:600}
+button{background:#1f6feb;color:#fff;font-weight:600;margin-top:8px}
 body.dark button{background:#222}
 .temp{font-size:46px;font-weight:700}
 .hourly{max-height:240px;overflow-y:auto}
@@ -94,12 +94,12 @@ footer{text-align:center;font-size:12px;opacity:.65;margin-top:10px}
 </div>
 
 <div class="card center">
-<h4>⚠️ Alerts</h4>
+<h4>⚠️ Weather Alerts</h4>
 <div id="alertsText">Checking…</div>
 </div>
 
 <div class="card">
-<h4>🌧️ Rain</h4>
+<h4>🌧️ Rain & Precipitation</h4>
 <div class="grid" id="rainBox"></div>
 </div>
 
@@ -109,7 +109,7 @@ footer{text-align:center;font-size:12px;opacity:.65;margin-top:10px}
 </div>
 
 <div class="card">
-<h4>🌫️ AQI</h4>
+<h4>🌫️ Air Quality (AQI)</h4>
 <div class="grid" id="aqiBox"></div>
 </div>
 
@@ -119,7 +119,7 @@ footer{text-align:center;font-size:12px;opacity:.65;margin-top:10px}
 </div>
 
 <div class="card center">
-<h4>🕒 24h Summary</h4>
+<h4>🕒 24-Hour Temperature Summary</h4>
 <div class="grid" id="summary"></div>
 </div>
 
@@ -128,13 +128,15 @@ footer{text-align:center;font-size:12px;opacity:.65;margin-top:10px}
 
 <script>
 /* DARK MODE */
-const modeBtn=document.getElementById("modeBtn");
 modeBtn.onclick=()=>{
  document.body.classList.toggle("dark");
  localStorage.setItem("mode",document.body.classList.contains("dark"));
  modeBtn.innerText=document.body.classList.contains("dark")?"☀️":"🌙";
 };
-if(localStorage.getItem("mode")==="true"){document.body.classList.add("dark");modeBtn.innerText="☀️";}
+if(localStorage.getItem("mode")==="true"){
+ document.body.classList.add("dark");
+ modeBtn.innerText="☀️";
+}
 
 /* INSTALL BUTTON */
 let deferredPrompt;
@@ -151,7 +153,7 @@ installBtn.onclick=async()=>{
  deferredPrompt=null;
 };
 
-/* LOAD DEFAULT */
+/* DEFAULT LOAD */
 window.onload=()=>loadWeather(28.6139,77.209,"Delhi");
 
 /* SEARCH */
@@ -168,7 +170,18 @@ function search(){
 
 /* WEATHER */
 async function loadWeather(lat,lon,name){
- const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,pressure_msl,apparent_temperature,winddirection_10m,precipitation,precipitation_probability&timezone=auto`);
+ const r=await fetch(
+ `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=
+ temperature_2m,
+ apparent_temperature,
+ relative_humidity_2m,
+ pressure_msl,
+ windspeed_10m,
+ winddirection_10m,
+ precipitation,
+ precipitation_probability
+ &timezone=auto`
+ );
  const d=await r.json();
 
  temp.innerText=d.current_weather.temperature+"°C";
@@ -200,7 +213,7 @@ function renderSummary(h){
  <div class="box">Avg<br><b>${(t.reduce((a,b)=>a+b,0)/24).toFixed(1)}°C</b></div>`;
 }
 
-/* HEAT */
+/* HEATWAVE */
 function detectHeat(t){
  let m=Math.max(...t),msg="Normal 🌤️";
  if(m>=45)msg="🚨 Severe Heatwave";
@@ -215,34 +228,56 @@ function renderRain(h){
  rainBox.innerHTML=`
  <div class="box">Rain<br><b>${r} mm</b></div>
  <div class="box">Chance<br><b>${p}%</b></div>
- <div class="box">Status<br><b>${r>0?"Rain":"Dry"}</b></div>
+ <div class="box">Intensity<br><b>${r>7?"Heavy":r>2?"Moderate":r>0?"Light":"None"}</b></div>
  <div class="box">Next Hour<br><b>${p>50?"Likely":"Low"}</b></div>`;
 }
 
-/* LOCATION */
+/* LOCATION – 10 FEATURES */
 function renderLocation(d,lat,lon){
  locationBox.innerHTML=`
- <div class="box">Lat<br><b>${lat.toFixed(2)}</b></div>
- <div class="box">Lon<br><b>${lon.toFixed(2)}</b></div>
+ <div class="box">Latitude<br><b>${lat.toFixed(2)}</b></div>
+ <div class="box">Longitude<br><b>${lon.toFixed(2)}</b></div>
  <div class="box">Elevation<br><b>${d.elevation} m</b></div>
+ <div class="box">Timezone<br><b>${d.timezone}</b></div>
+ <div class="box">Temperature<br><b>${d.current_weather.temperature}°C</b></div>
+ <div class="box">Feels Like<br><b>${d.hourly.apparent_temperature[0]}°C</b></div>
  <div class="box">Humidity<br><b>${d.hourly.relative_humidity_2m[0]}%</b></div>
  <div class="box">Pressure<br><b>${d.hourly.pressure_msl[0]} hPa</b></div>
- <div class="box">Wind<br><b>${d.current_weather.windspeed} km/h</b></div>`;
+ <div class="box">Wind Speed<br><b>${d.current_weather.windspeed} km/h</b></div>
+ <div class="box">Wind Dir<br><b>${d.hourly.winddirection_10m[0]}°</b></div>`;
 }
 
-/* AQI */
+/* AQI – 10 FEATURES */
 function loadAQI(lat,lon){
- fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi,pm2_5,pm10,ozone`)
+ fetch(
+ `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=
+ us_aqi,
+ pm2_5,
+ pm10,
+ ozone,
+ nitrogen_dioxide,
+ sulphur_dioxide,
+ carbon_monoxide`
+ )
  .then(r=>r.json())
  .then(a=>{
   const v=a.hourly.us_aqi[0];
   aqiBox.innerHTML=`
   <div class="box">AQI<br><b>${v}</b></div>
+  <div class="box">Category<br><b>${aqiCat(v)}</b></div>
+  <div class="box">Health<br><b>${aqiAdvice(v)}</b></div>
+  <div class="box">Risk<br><b>${aqiRisk(v)}</b></div>
   <div class="box">PM2.5<br><b>${a.hourly.pm2_5[0]}</b></div>
   <div class="box">PM10<br><b>${a.hourly.pm10[0]}</b></div>
-  <div class="box">Ozone<br><b>${a.hourly.ozone[0]}</b></div>`;
+  <div class="box">O₃<br><b>${a.hourly.ozone[0]}</b></div>
+  <div class="box">NO₂<br><b>${a.hourly.nitrogen_dioxide[0]}</b></div>
+  <div class="box">SO₂<br><b>${a.hourly.sulphur_dioxide[0]}</b></div>
+  <div class="box">CO<br><b>${a.hourly.carbon_monoxide[0]}</b></div>`;
  });
 }
+function aqiCat(v){return v<=50?"Good":v<=100?"Moderate":v<=150?"Unhealthy (S)":"Hazardous"}
+function aqiAdvice(v){return v<=50?"Safe":v<=100?"Sensitive Care":"Limit Outdoor"}
+function aqiRisk(v){return v<=50?"Low":v<=100?"Medium":"High"}
 
 /* SERVICE WORKER */
 if("serviceWorker"in navigator){
