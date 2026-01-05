@@ -4,12 +4,10 @@
 <meta charset="UTF-8">
 <title>Climix</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#000">
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-
-/* ================= BASE ================= */
 body{
  min-height:100vh;
  display:flex;
@@ -19,31 +17,13 @@ body{
  overflow-y:auto;
  -webkit-overflow-scrolling:touch;
  color:#e5eaf0;
- transition:background 1.2s, filter .4s;
+ transition:background 1s,filter .4s;
 }
-
-/* ================= WEATHER THEMES ================= */
 body.day.clear{background:linear-gradient(140deg,#0f2027,#203a43,#2c5364)}
 body.day.cloudy{background:linear-gradient(140deg,#232526,#414345)}
 body.day.rain{background:linear-gradient(140deg,#141e30,#243b55)}
+body.night{background:linear-gradient(180deg,#000,#0b0c10)}
 
-body.night{
- background:linear-gradient(180deg,#000000,#0b0c10);
-}
-
-/* AQI adaptive overlay */
-body.aqi-good{box-shadow:inset 0 0 0 9999px rgba(0,255,200,.02)}
-body.aqi-moderate{box-shadow:inset 0 0 0 9999px rgba(255,200,0,.04)}
-body.aqi-poor{box-shadow:inset 0 0 0 9999px rgba(255,80,80,.06)}
-
-#effects{
- position:fixed;
- inset:0;
- pointer-events:none;
- z-index:1;
-}
-
-/* ================= APP FRAME ================= */
 .app{
  width:100%;
  max-width:420px;
@@ -52,10 +32,7 @@ body.aqi-poor{box-shadow:inset 0 0 0 9999px rgba(255,80,80,.06)}
  backdrop-filter:blur(26px);
  background:rgba(10,15,20,.65);
  border-radius:30px;
- box-shadow:
-  0 30px 60px rgba(0,0,0,.8),
-  inset 0 0 0 1px rgba(255,255,255,.05);
- z-index:2;
+ box-shadow:0 30px 60px rgba(0,0,0,.8);
 }
 
 .card{
@@ -64,21 +41,24 @@ body.aqi-poor{box-shadow:inset 0 0 0 9999px rgba(255,80,80,.06)}
  border-radius:22px;
  background:rgba(20,25,30,.55);
 }
-
 .center{text-align:center}
 .temp{font-size:48px;font-weight:bold;color:#fff}
 .icon{font-size:64px}
 
-canvas{width:100%;height:150px}
-
-.week{display:flex;gap:12px;overflow-x:auto}
-.week div{
- min-width:80px;
- padding:10px;
- border-radius:16px;
- background:rgba(0,0,0,.3);
- text-align:center
+.grid{
+ display:grid;
+ grid-template-columns:1fr 1fr;
+ gap:12px
 }
+.box{
+ padding:12px;
+ border-radius:14px;
+ background:rgba(0,0,0,.3);
+ text-align:center;
+ font-size:13px
+}
+
+canvas{width:100%;height:150px}
 
 input,button{
  width:100%;
@@ -90,30 +70,11 @@ input,button{
 input{background:rgba(255,255,255,.1);color:#fff}
 button{background:#1f6feb;color:#fff;margin-top:6px}
 
-.slider{
- width:100%;
- margin-top:6px;
-}
-
 footer{text-align:center;font-size:12px;opacity:.7}
-
-/* ================= PARTICLES ================= */
-.particles span{
- position:absolute;
- width:2px;height:14px;
- background:rgba(255,255,255,.6);
- animation:rain 1s linear infinite
-}
-@keyframes rain{
- from{transform:translateY(-20px)}
- to{transform:translateY(100vh)}
-}
 </style>
 </head>
 
 <body class="day clear">
-
-<div id="effects"></div>
 
 <div class="app">
 
@@ -131,9 +92,16 @@ footer{text-align:center;font-size:12px;opacity:.7}
 <div id="place"></div>
 </div>
 
+<!-- LOCATION CONDITIONS -->
 <div class="card">
-<label>Hue Intensity</label>
-<input type="range" min="80" max="120" value="100" class="slider" id="hue">
+<h4>📍 Location Conditions</h4>
+<div class="grid" id="locationBox"></div>
+</div>
+
+<!-- AQI CONDITIONS -->
+<div class="card">
+<h4>🌫️ Air Quality (AQI)</h4>
+<div class="grid" id="aqiBox"></div>
 </div>
 
 <div class="card">
@@ -142,25 +110,16 @@ footer{text-align:center;font-size:12px;opacity:.7}
 </div>
 
 <div class="card">
-<h4>AQI (US)</h4>
+<h4>AQI Trend</h4>
 <canvas id="aqiChart"></canvas>
-</div>
-
-<div class="card">
-<h4>Weekly</h4>
-<div class="week" id="week"></div>
 </div>
 
 <footer>© Manik Roy 2025. All Rights Reserved.</footer>
 </div>
 
 <script>
-window.onload=()=>{
- loadWeather(28.6139,77.2090,"Delhi");
- applyHue();
-};
+window.onload=()=>loadWeather(28.6139,77.2090,"Delhi");
 
-/* ================= SEARCH ================= */
 function search(){
  if(!city.value) return;
  fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city.value}`)
@@ -172,69 +131,57 @@ function search(){
  });
 }
 
-/* ================= WEATHER ================= */
 function loadWeather(lat,lon,name){
- fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m&daily=temperature_2m_max,weathercode,sunrise,sunset&timezone=auto`)
+ fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,pressure_msl,apparent_temperature,winddirection_10m&timezone=auto`)
  .then(r=>r.json())
  .then(d=>{
   temp.innerText=d.current_weather.temperature+"°C";
-  icon.innerText=iconOf(d.current_weather.weathercode);
-  desc.innerText=textOf(d.current_weather.weathercode);
+  icon.innerText="⛅";
+  desc.innerText="Live Conditions";
   place.innerText=name;
 
-  applyDayNight(d.daily.sunrise[0],d.daily.sunset[0]);
+  renderLocation(d,lat,lon);
   draw(d.hourly.temperature_2m,tChart);
-  weekly(d.daily);
   loadAQI(lat,lon);
  });
 }
 
-/* ================= AQI ================= */
+function renderLocation(d,lat,lon){
+ locationBox.innerHTML=`
+ <div class="box">Latitude<br><b>${lat.toFixed(2)}</b></div>
+ <div class="box">Longitude<br><b>${lon.toFixed(2)}</b></div>
+ <div class="box">Elevation<br><b>${d.elevation} m</b></div>
+ <div class="box">Timezone<br><b>${d.timezone}</b></div>
+ <div class="box">Feels Like<br><b>${d.hourly.apparent_temperature[0]}°C</b></div>
+ <div class="box">Humidity<br><b>${d.hourly.relative_humidity_2m[0]}%</b></div>
+ <div class="box">Pressure<br><b>${d.hourly.pressure_msl[0]} hPa</b></div>
+ <div class="box">Wind Dir<br><b>${d.hourly.winddirection_10m[0]}°</b></div>
+ <div class="box">Temperature<br><b>${d.current_weather.temperature}°C</b></div>
+ <div class="box">Wind Speed<br><b>${d.current_weather.windspeed} km/h</b></div>
+ `;
+}
+
 function loadAQI(lat,lon){
- fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi`)
+ fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi,pm2_5,pm10,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone`)
  .then(r=>r.json())
  .then(a=>{
+  const v=a.hourly.us_aqi[0];
+  aqiBox.innerHTML=`
+   <div class="box">AQI<br><b>${v}</b></div>
+   <div class="box">Category<br><b>${aqiCat(v)}</b></div>
+   <div class="box">PM2.5<br><b>${a.hourly.pm2_5[0]}</b></div>
+   <div class="box">PM10<br><b>${a.hourly.pm10[0]}</b></div>
+   <div class="box">CO<br><b>${a.hourly.carbon_monoxide[0]}</b></div>
+   <div class="box">NO₂<br><b>${a.hourly.nitrogen_dioxide[0]}</b></div>
+   <div class="box">SO₂<br><b>${a.hourly.sulphur_dioxide[0]}</b></div>
+   <div class="box">O₃<br><b>${a.hourly.ozone[0]}</b></div>
+   <div class="box">Health<br><b>${aqiAdvice(v)}</b></div>
+   <div class="box">Risk<br><b>${aqiRisk(v)}</b></div>
+  `;
   draw(a.hourly.us_aqi,aqiChart);
-  applyAQIColor(a.hourly.us_aqi[0]);
  });
 }
 
-/* ================= VISUAL LOGIC ================= */
-function applyDayNight(sr,ss){
- const now=Date.now();
- document.body.classList.toggle("night", now<new Date(sr) || now>new Date(ss));
- document.body.classList.toggle("day", !(now<new Date(sr) || now>new Date(ss)));
-}
-
-function applyAQIColor(v){
- document.body.classList.remove("aqi-good","aqi-moderate","aqi-poor");
- if(v<=50) document.body.classList.add("aqi-good");
- else if(v<=100) document.body.classList.add("aqi-moderate");
- else document.body.classList.add("aqi-poor");
-}
-
-/* ================= HUE SLIDER ================= */
-hue.oninput=()=>{
- localStorage.hue=hue.value;
- applyHue();
-};
-function applyHue(){
- const v=localStorage.hue||100;
- document.body.style.filter=`saturate(${v}%)`;
- hue.value=v;
-}
-
-/* ================= WEEK ================= */
-function weekly(d){
- week.innerHTML="";
- d.time.forEach((t,i)=>{
-  week.innerHTML+=`
-   <div>${new Date(t).toLocaleDateString("en",{weekday:"short"})}<br>
-   ${iconOf(d.weathercode[i])}<br>${d.temperature_2m_max[i]}°</div>`;
- });
-}
-
-/* ================= CHART ================= */
 function draw(data,c){
  const x=c.getContext("2d");
  c.width=320;c.height=150;
@@ -251,9 +198,25 @@ function draw(data,c){
  x.stroke();
 }
 
-/* ================= HELPERS ================= */
-function iconOf(c){return c==0?"☀":c<4?"⛅":c<70?"🌧":"🌩";}
-function textOf(c){return c==0?"Clear":c<4?"Cloudy":c<70?"Rain":"Storm";}
+function aqiCat(v){
+ if(v<=50) return "Good";
+ if(v<=100) return "Moderate";
+ if(v<=150) return "Unhealthy (S)";
+ if(v<=200) return "Unhealthy";
+ return "Hazardous";
+}
+function aqiAdvice(v){
+ if(v<=50) return "Safe";
+ if(v<=100) return "Sensitive avoid long exposure";
+ if(v<=150) return "Wear mask";
+ return "Stay indoors";
+}
+function aqiRisk(v){
+ if(v<=50) return "Low";
+ if(v<=100) return "Medium";
+ if(v<=150) return "High";
+ return "Severe";
+}
 </script>
 </body>
 </html>
