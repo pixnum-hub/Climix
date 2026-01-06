@@ -1,0 +1,23 @@
+{
+  "name": "Climix Pro",
+  "short_name": "Climix",
+  "description": "Advanced weather forecast PWA with AQI, 7-day forecast, charts, and alerts.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
+  "scope": ".",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
