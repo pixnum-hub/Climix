@@ -6,55 +6,106 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
+:root{
+  --bg:#000;
+  --card:rgba(255,255,255,0.07);
+  --text:#fff;
+  --accent:0.08;
+}
+
 body{
   margin:0;
-  background:#000;
-  color:#fff;
-  font-family:system-ui;
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui,-apple-system,Segoe UI;
   display:flex;
   justify-content:center;
 }
+
 .app{
   width:100%;
   max-width:420px;
   padding:16px;
+  position:relative;
 }
+
 .card{
-  background:rgba(255,255,255,0.08);
-  border-radius:18px;
-  padding:16px;
-  margin-bottom:14px;
+  background:rgba(255,255,255,var(--accent));
+  backdrop-filter:blur(18px);
+  border-radius:22px;
+  padding:18px;
+  margin-bottom:16px;
 }
+
 .temp{
-  font-size:3.8rem;
-  font-weight:700;
+  font-size:4.4rem;
+  font-weight:800;
+  letter-spacing:-1px;
 }
-.big{font-size:1.4rem}
+
+.place{
+  font-size:1.6rem;
+  opacity:.9;
+}
+
+h3{
+  font-size:1.55rem;
+  margin:0 0 10px;
+}
+
 .item{
-  background:rgba(0,0,0,0.3);
-  padding:12px;
-  border-radius:12px;
-  margin-bottom:6px;
-  font-size:1.15rem;
+  background:rgba(0,0,0,0.35);
+  padding:14px;
+  border-radius:14px;
+  margin-bottom:8px;
+  font-size:1.25rem;
 }
+
 .grid{
   display:grid;
   grid-template-columns:1fr 1fr;
-  gap:8px;
+  gap:10px;
 }
+
 input,button{
   width:100%;
-  padding:14px;
-  font-size:1.2rem;
-  border-radius:12px;
+  padding:16px;
+  font-size:1.25rem;
+  border-radius:16px;
   border:none;
 }
-button{margin-top:8px}
+
+button{margin-top:10px}
+
+.toggle{
+  position:absolute;
+  top:16px;
+  right:16px;
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  border:none;
+  font-size:20px;
+  background:#111;
+  color:#fff;
+}
+
+.slider{
+  width:100%;
+}
+
+.footer{
+  text-align:center;
+  font-size:1.05rem;
+  opacity:.7;
+}
 </style>
 </head>
 
 <body>
 <div class="app">
+
+<button class="toggle" onclick="toggleMode()">🌙</button>
 
 <div class="card">
   <input id="city" placeholder="Enter city">
@@ -63,7 +114,12 @@ button{margin-top:8px}
 
 <div class="card">
   <div class="temp" id="temp">--°C</div>
-  <div class="big" id="place">Loading…</div>
+  <div class="place" id="place">Loading…</div>
+</div>
+
+<div class="card">
+  <h3>🎨 Hue Intensity</h3>
+  <input class="slider" type="range" min="4" max="14" value="8" oninput="setHue(this.value)">
 </div>
 
 <div class="card">
@@ -92,13 +148,24 @@ button{margin-top:8px}
   <div id="aqi"></div>
 </div>
 
-<div class="card">
+<div class="card footer">
   © Manik Roy 2025. All Rights Reserved.
 </div>
 
 </div>
 
 <script>
+function toggleMode(){
+  document.body.style.background =
+    document.body.style.background==="#000" ? "#050505" : "#000";
+}
+
+function setHue(v){
+  document.documentElement.style.setProperty("--accent", v/100);
+}
+
+/* ===== WORKING LOGIC (UNCHANGED) ===== */
+
 async function getJSON(url){
   try{
     const r=await fetch(url);
@@ -142,7 +209,6 @@ async function load(lat,lon,name){
 
   temp.textContent=w.current_weather.temperature+"°C";
 
-  /* Location Conditions (10) */
   conditions.innerHTML=`
     <div class="item">Humidity: ${w.hourly.relative_humidity_2m[0]}%</div>
     <div class="item">Pressure: ${w.hourly.pressure_msl[0]} hPa</div>
@@ -151,12 +217,11 @@ async function load(lat,lon,name){
     <div class="item">Longitude: ${lon.toFixed(2)}</div>
     <div class="item">Timezone: ${w.timezone}</div>
     <div class="item">Elevation: ${w.elevation} m</div>
-    <div class="item">Rain now: ${w.hourly.precipitation[0]} mm</div>
+    <div class="item">Rain: ${w.hourly.precipitation[0]} mm</div>
     <div class="item">Day Max: ${w.daily.temperature_2m_max[0]}°C</div>
     <div class="item">Day Min: ${w.daily.temperature_2m_min[0]}°C</div>
   `;
 
-  /* Hourly 24h + Min/Max */
   hourly.innerHTML="";
   let min=999,max=-999;
   for(let i=0;i<24;i++){
@@ -166,23 +231,19 @@ async function load(lat,lon,name){
   }
   hourMinMax.textContent=`24h Min: ${min}°C | Max: ${max}°C`;
 
-  /* 7-Day */
   week.innerHTML="";
   for(let i=0;i<7;i++){
     week.innerHTML+=`
       <div class="item">
-        Day ${i+1}<br>
-        ${w.daily.temperature_2m_min[i]}° / ${w.daily.temperature_2m_max[i]}°
+        Day ${i+1}<br>${w.daily.temperature_2m_min[i]}° / ${w.daily.temperature_2m_max[i]}°
       </div>`;
   }
 
-  /* Rain */
   rain.innerHTML=`
     <div class="item">Rain now: ${w.hourly.precipitation[0]} mm</div>
     <div class="item">Wind speed: ${w.current_weather.windspeed} km/h</div>
   `;
 
-  /* AQI (SAFE, NON-BLOCKING) */
   const aq=await getJSON(
     "https://air-quality-api.open-meteo.com/v1/air-quality"
     +"?latitude="+lat
