@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>Climix</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
 body{
   margin:0;
@@ -22,17 +23,24 @@ body{
   background:rgba(255,255,255,0.08);
   border-radius:18px;
   padding:16px;
-  margin-bottom:12px;
+  margin-bottom:14px;
 }
 .temp{
-  font-size:3.5rem;
+  font-size:3.8rem;
   font-weight:700;
 }
+.big{font-size:1.4rem}
 .item{
   background:rgba(0,0,0,0.3);
-  padding:10px;
+  padding:12px;
   border-radius:12px;
   margin-bottom:6px;
+  font-size:1.15rem;
+}
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
 }
 input,button{
   width:100%;
@@ -44,8 +52,8 @@ input,button{
 button{margin-top:8px}
 </style>
 </head>
-<body>
 
+<body>
 <div class="app">
 
 <div class="card">
@@ -55,16 +63,37 @@ button{margin-top:8px}
 
 <div class="card">
   <div class="temp" id="temp">--°C</div>
-  <div id="place">Loading…</div>
+  <div class="big" id="place">Loading…</div>
 </div>
 
 <div class="card">
-  <h3>Conditions</h3>
+  <h3>📍 Location Conditions</h3>
   <div id="conditions"></div>
 </div>
 
 <div class="card">
-  © Manik Roy 2025
+  <h3>🌡️ Hourly Temperature (24h)</h3>
+  <div id="hourly"></div>
+  <div id="hourMinMax" class="item"></div>
+</div>
+
+<div class="card">
+  <h3>📅 7-Day Temperature</h3>
+  <div class="grid" id="week"></div>
+</div>
+
+<div class="card">
+  <h3>🌧️ Rain & Precipitation</h3>
+  <div id="rain"></div>
+</div>
+
+<div class="card">
+  <h3>🌫️ Air Quality (AQI)</h3>
+  <div id="aqi"></div>
+</div>
+
+<div class="card">
+  © Manik Roy 2025. All Rights Reserved.
 </div>
 
 </div>
@@ -72,7 +101,7 @@ button{margin-top:8px}
 <script>
 async function getJSON(url){
   try{
-    const r = await fetch(url);
+    const r=await fetch(url);
     if(!r.ok) throw 0;
     return await r.json();
   }catch{
@@ -81,45 +110,103 @@ async function getJSON(url){
 }
 
 async function search(){
-  const name = city.value.trim();
+  const name=city.value.trim();
   if(!name) return;
 
-  const geo = await getJSON(
+  const geo=await getJSON(
     "https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(name)+"&count=1"
   );
   if(!geo || !geo.results) return;
 
-  const l = geo.results[0];
-  load(l.latitude, l.longitude, l.name);
+  const l=geo.results[0];
+  load(l.latitude,l.longitude,l.name);
 }
 
-async function load(lat, lon, name){
-  place.textContent = name;
+async function load(lat,lon,name){
+  place.textContent=name;
 
-  const url =
+  const url=
     "https://api.open-meteo.com/v1/forecast"
     +"?latitude="+lat
     +"&longitude="+lon
     +"&current_weather=true"
-    +"&hourly=temperature_2m,relative_humidity_2m,pressure_msl,windspeed_10m"
+    +"&hourly=temperature_2m,relative_humidity_2m,pressure_msl,windspeed_10m,precipitation"
+    +"&daily=temperature_2m_min,temperature_2m_max"
     +"&timezone=auto";
 
-  const w = await getJSON(url);
-
+  const w=await getJSON(url);
   if(!w || !w.current_weather){
     temp.textContent="--°C";
-    conditions.innerHTML="<div class='item'>Offline or network blocked</div>";
     return;
   }
 
-  temp.textContent = w.current_weather.temperature+"°C";
+  temp.textContent=w.current_weather.temperature+"°C";
 
-  conditions.innerHTML = `
+  /* Location Conditions (10) */
+  conditions.innerHTML=`
     <div class="item">Humidity: ${w.hourly.relative_humidity_2m[0]}%</div>
     <div class="item">Pressure: ${w.hourly.pressure_msl[0]} hPa</div>
     <div class="item">Wind: ${w.current_weather.windspeed} km/h</div>
+    <div class="item">Latitude: ${lat.toFixed(2)}</div>
+    <div class="item">Longitude: ${lon.toFixed(2)}</div>
     <div class="item">Timezone: ${w.timezone}</div>
+    <div class="item">Elevation: ${w.elevation} m</div>
+    <div class="item">Rain now: ${w.hourly.precipitation[0]} mm</div>
+    <div class="item">Day Max: ${w.daily.temperature_2m_max[0]}°C</div>
+    <div class="item">Day Min: ${w.daily.temperature_2m_min[0]}°C</div>
   `;
+
+  /* Hourly 24h + Min/Max */
+  hourly.innerHTML="";
+  let min=999,max=-999;
+  for(let i=0;i<24;i++){
+    const t=w.hourly.temperature_2m[i];
+    min=Math.min(min,t); max=Math.max(max,t);
+    hourly.innerHTML+=`<div class="item">Hour ${i}: ${t}°C</div>`;
+  }
+  hourMinMax.textContent=`24h Min: ${min}°C | Max: ${max}°C`;
+
+  /* 7-Day */
+  week.innerHTML="";
+  for(let i=0;i<7;i++){
+    week.innerHTML+=`
+      <div class="item">
+        Day ${i+1}<br>
+        ${w.daily.temperature_2m_min[i]}° / ${w.daily.temperature_2m_max[i]}°
+      </div>`;
+  }
+
+  /* Rain */
+  rain.innerHTML=`
+    <div class="item">Rain now: ${w.hourly.precipitation[0]} mm</div>
+    <div class="item">Wind speed: ${w.current_weather.windspeed} km/h</div>
+  `;
+
+  /* AQI (SAFE, NON-BLOCKING) */
+  const aq=await getJSON(
+    "https://air-quality-api.open-meteo.com/v1/air-quality"
+    +"?latitude="+lat
+    +"&longitude="+lon
+    +"&hourly=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,ammonia"
+  );
+
+  if(aq && aq.hourly){
+    const v=aq.hourly;
+    aqi.innerHTML=`
+      <div class="item">AQI: ${v.us_aqi[0]}</div>
+      <div class="item">PM2.5: ${v.pm2_5[0]}</div>
+      <div class="item">PM10: ${v.pm10[0]}</div>
+      <div class="item">O₃: ${v.ozone[0]}</div>
+      <div class="item">NO₂: ${v.nitrogen_dioxide[0]}</div>
+      <div class="item">SO₂: ${v.sulphur_dioxide[0]}</div>
+      <div class="item">CO: ${v.carbon_monoxide[0]}</div>
+      <div class="item">NH₃: ${v.ammonia[0]}</div>
+      <div class="item">Category: ${v.us_aqi[0]<50?"Good":"Moderate+"}</div>
+      <div class="item">Health: Sensitive groups care</div>
+    `;
+  }else{
+    aqi.innerHTML="<div class='item'>AQI unavailable</div>";
+  }
 }
 
 load(28.61,77.20,"Delhi");
