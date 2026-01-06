@@ -108,7 +108,7 @@ button{width:28%;background:#222;color:#fff}
 <script>
 let lastLat=22.5726,lastLon=88.3639,lastCity="Kolkata, India";
 let dark=true;let pollChart;
-const DEFAULT_CITY = "Kolkata";
+const DEFAULT_CITY="Kolkata";
 
 function toggleDark(){
   dark=!dark;
@@ -229,15 +229,12 @@ async function loadWeather(cityInput){
   } catch(e){console.error(e);}
 }
 
-// Auto-refresh every 10 minutes
 setInterval(()=>loadWeather(DEFAULT_CITY),10*60*1000);
 
-// Initial load
 if("geolocation" in navigator){
   navigator.geolocation.getCurrentPosition(()=>loadWeather(null),()=>loadWeather(DEFAULT_CITY));
 }else loadWeather(DEFAULT_CITY);
 
-// Service Worker for PWA offline caching
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(console.error);}
 </script>
 </body>
