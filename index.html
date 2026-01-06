@@ -6,6 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
+*{box-sizing:border-box}
+
 body{
   margin:0;
   background:#000;
@@ -19,9 +21,13 @@ body{
   width:100%;
   max-width:420px;
   padding:16px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
 }
 
 .card{
+  width:100%;
   background:rgba(255,255,255,0.08);
   backdrop-filter:blur(18px);
   border-radius:22px;
@@ -29,27 +35,11 @@ body{
   margin-bottom:16px;
 }
 
-.temp{
-  font-size:4.8rem;
-  font-weight:800;
-}
-
-.place{
-  font-size:1.6rem;
-  opacity:.9;
-}
-
-h3{
-  font-size:1.55rem;
-  margin:0 0 10px;
-}
-
-.item{
-  background:rgba(0,0,0,.35);
-  padding:14px;
-  border-radius:14px;
-  margin-bottom:8px;
-  font-size:1.25rem;
+.search{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
 }
 
 input,button{
@@ -60,7 +50,37 @@ input,button{
   border:none;
 }
 
-button{margin-top:10px}
+button{
+  cursor:pointer;
+}
+
+.temp{
+  font-size:4.8rem;
+  font-weight:800;
+  text-align:center;
+}
+
+.place{
+  font-size:1.6rem;
+  opacity:.9;
+  text-align:center;
+}
+
+h3{
+  font-size:1.55rem;
+  margin:0 0 12px;
+  text-align:center;
+}
+
+.item{
+  width:100%;
+  background:rgba(0,0,0,.35);
+  padding:14px;
+  border-radius:14px;
+  margin-bottom:10px;
+  font-size:1.25rem;
+  text-align:center;
+}
 
 .footer{
   text-align:center;
@@ -73,8 +93,10 @@ button{margin-top:10px}
 <div class="app">
 
 <div class="card">
-  <input id="city" placeholder="Enter city">
-  <button onclick="search()">Search</button>
+  <div class="search">
+    <input id="city" placeholder="Enter city">
+    <button onclick="search()">Search</button>
+  </div>
 </div>
 
 <div class="card">
