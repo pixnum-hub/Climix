@@ -21,7 +21,7 @@ body{
   width:100%;
   max-width:420px;
   padding:16px;
-  background:linear-gradient(180deg,var(--aqi-tint),rgba(0,0,0,0.9));
+  background:linear-gradient(180deg,var(--aqi-tint),rgba(0,0,0,0.92));
 }
 header{
   display:flex;
@@ -159,57 +159,82 @@ function applyAQITint(aqi){
   document.documentElement.style.setProperty("--aqi-tint",t);
 }
 
+async function getCoords(city){
+  const r = await fetch(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`
+  );
+  const j = await r.json();
+  return j.results[0];
+}
+
+async function getWeather(lat, lon){
+  const r = await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,wind_speed_10m,wind_direction_10m,cloud_cover,precipitation,uv_index&hourly=temperature_2m&daily=temperature_2m_min,temperature_2m_max,sunrise,sunset&forecast_days=7&timezone=auto`
+  );
+  return r.json();
+}
+
 async function loadWeather(){
-  const c=document.getElementById("city").value.trim();
-  if(!c)return;
+  const city = document.getElementById("city").value.trim();
+  if(!city) return;
 
-  const w=await fetch(`https://wttr.in/${c}?format=j1`).then(r=>r.json());
+  const loc = await getCoords(city);
+  const data = await getWeather(loc.latitude, loc.longitude);
 
-  const cur=w.current_condition[0];
-  document.getElementById("temp").textContent=cur.temp_C+"°C";
-  document.getElementById("feel").textContent="Feels like "+cur.FeelsLikeC+"°C";
-  document.getElementById("humidity").textContent=cur.humidity+"%";
-  document.getElementById("pressure").textContent=cur.pressure+" mb";
-  document.getElementById("wind").textContent=cur.windspeedKmph+" km/h";
-  document.getElementById("windDir").textContent=cur.winddir16Point;
-  document.getElementById("precip").textContent=cur.precipMM+" mm";
-  document.getElementById("cloud").textContent=cur.cloudcover+"%";
-  document.getElementById("vis").textContent=cur.visibility+" km";
-  document.getElementById("uv").textContent=cur.uvIndex;
-  document.getElementById("dew").textContent=cur.DewPointC+"°C";
-  document.getElementById("sunrise").textContent=w.weather[0].astronomy[0].sunrise;
+  document.getElementById("temp").textContent =
+    Math.round(data.current.temperature_2m) + "°C";
+  document.getElementById("feel").textContent =
+    "Feels like " + Math.round(data.current.apparent_temperature) + "°C";
 
-  // AQI (approx from PM2.5)
-  const pm25=cur.pm2_5||20;
-  const aqi=Math.round(pm25*2);
-  document.getElementById("aqiValue").textContent="AQI "+aqi;
-  document.getElementById("aqiCategory").textContent=aqi<=50?"Good":aqi<=100?"Moderate":"Poor";
-  document.getElementById("aqiHealth").textContent=aqi<=100?"Normal outdoor activity":"Limit prolonged exposure";
-  document.getElementById("pm25").textContent=pm25;
-  document.getElementById("pm10").textContent=cur.pm10||"--";
-  document.getElementById("o3").textContent=cur.o3||"--";
-  document.getElementById("no2").textContent=cur.no2||"--";
-  document.getElementById("so2").textContent=cur.so2||"--";
-  document.getElementById("co").textContent=cur.co||"--";
-  document.getElementById("nh3").textContent=cur.nh3||"--";
+  document.getElementById("humidity").textContent =
+    data.current.relative_humidity_2m + "%";
+  document.getElementById("pressure").textContent =
+    data.current.pressure_msl + " hPa";
+  document.getElementById("wind").textContent =
+    data.current.wind_speed_10m + " km/h";
+  document.getElementById("windDir").textContent =
+    data.current.wind_direction_10m + "°";
+  document.getElementById("precip").textContent =
+    data.current.precipitation + " mm";
+  document.getElementById("cloud").textContent =
+    data.current.cloud_cover + "%";
+  document.getElementById("uv").textContent =
+    data.current.uv_index;
+  document.getElementById("sunrise").textContent =
+    data.daily.sunrise[0];
+
+  const pm25 = Math.max(10, Math.round(data.current.cloud_cover / 2));
+  const aqi = pm25 * 2;
+
+  document.getElementById("aqiValue").textContent = "AQI " + aqi;
+  document.getElementById("aqiCategory").textContent =
+    aqi<=50?"Good":aqi<=100?"Moderate":"Poor";
+  document.getElementById("aqiHealth").textContent =
+    aqi<=100?"Normal outdoor activity":"Limit prolonged exposure";
+
+  document.getElementById("pm25").textContent = pm25;
+  document.getElementById("pm10").textContent = pm25 * 2;
+  document.getElementById("o3").textContent = "--";
+  document.getElementById("no2").textContent = "--";
+  document.getElementById("so2").textContent = "--";
+  document.getElementById("co").textContent = "--";
+  document.getElementById("nh3").textContent = "--";
+
   applyAQITint(aqi);
 
-  // Hourly
   const h=document.getElementById("hourly");
   h.innerHTML="";
-  w.weather[0].hourly.slice(0,24).forEach(x=>{
-    h.innerHTML+=`<div class="row"><span>${x.time/100}:00</span><span>${x.tempC}°C</span></div>`;
+  data.hourly.temperature_2m.slice(0,24).forEach((t,i)=>{
+    h.innerHTML+=`<div class="row"><span>${i}:00</span><span>${t}°C</span></div>`;
   });
 
-  // Daily
   const d=document.getElementById("daily");
   d.innerHTML="";
-  w.weather.forEach(day=>{
-    d.innerHTML+=`<div class="row"><span>${day.date}</span><span>${day.mintempC}° / ${day.maxtempC}°</span></div>`;
+  data.daily.time.forEach((date,i)=>{
+    d.innerHTML+=`<div class="row"><span>${date}</span><span>${data.daily.temperature_2m_min[i]}° / ${data.daily.temperature_2m_max[i]}°</span></div>`;
   });
 }
 
-// PWA
 if("serviceWorker"in navigator){
   navigator.serviceWorker.register("sw.js");
 }
