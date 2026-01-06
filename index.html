@@ -21,9 +21,6 @@ h2{font-size:1.25rem;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .toggle{background:#111;color:#fff;border:none;border-radius:12px;padding:8px;cursor:pointer}
 .alert{padding:10px;border-radius:12px;font-size:.95rem}
-.good{background:#0a3}
-.warn{background:#a80}
-.bad{background:#800}
 .hourly{display:flex;gap:10px;overflow-x:auto;margin-top:8px}
 .hour{min-width:78px;text-align:center;background:rgba(255,255,255,.1);padding:10px;border-radius:12px;font-size:.85rem}
 input,button{height:46px;border-radius:14px;border:none;font-size:1.05rem}
@@ -116,24 +113,16 @@ const DEFAULT_CITY = "Kolkata";
 function toggleDark(){
   dark=!dark;
   const app=document.querySelector(".app");
-  if(dark){
-    document.body.classList.add("oled");
-    app.style.background="#000";
-    app.style.boxShadow="";
-    document.querySelector(".toggle").textContent="🌙 OLED";
-  } else {
-    document.body.classList.remove("oled");
-    app.style.background="#111";
-    document.querySelector(".toggle").textContent="☀️";
-  }
+  if(dark){document.body.classList.add("oled");app.style.background="#000";app.style.boxShadow="";document.querySelector(".toggle").textContent="🌙 OLED";}
+  else{document.body.classList.remove("oled");app.style.background="#111";document.querySelector(".toggle").textContent="☀️";}
 }
 
 function applyAQITint(aqi){
   let t="rgba(0,0,0,0)";
-  if(aqi<=50) t="rgba(0,100,255,0.08)";
-  else if(aqi<=100) t="rgba(0,200,90,0.12)";
-  else if(aqi<=150) t="rgba(255,140,0,0.14)";
-  else if(aqi<=200) t="rgba(255,80,80,0.16)";
+  if(aqi<=50)t="rgba(0,100,255,0.08)";
+  else if(aqi<=100)t="rgba(0,200,90,0.12)";
+  else if(aqi<=150)t="rgba(255,140,0,0.14)";
+  else if(aqi<=200)t="rgba(255,80,80,0.16)";
   else t="rgba(180,0,0,0.2)";
   document.documentElement.style.setProperty("--aqi-tint",t);
   document.querySelector(".app").classList.add("aqi");
@@ -166,87 +155,86 @@ async function getAQI(lat,lon){
 }
 
 async function loadWeather(cityInput){
-  const loc=await getCoords(cityInput || DEFAULT_CITY);
-  lastLat=loc.latitude; lastLon=loc.longitude;
-  lastCity=loc.name+(loc.country?`, ${loc.country}`:"");
-  document.getElementById("cityName").textContent=lastCity;
+  try{
+    const loc=await getCoords(cityInput || DEFAULT_CITY);
+    lastLat=loc.latitude; lastLon=loc.longitude;
+    lastCity=loc.name+(loc.country?`, ${loc.country}`:"");
+    document.getElementById("cityName").textContent=lastCity;
 
-  const weather=await getWeather(lastLat,lastLon);
-  const cur=weather.current_weather;
+    const weather=await getWeather(lastLat,lastLon);
+    const cur=weather.current_weather;
 
-  document.getElementById("temp").textContent=Math.round(cur.temperature)+"°C";
-  document.getElementById("feel").textContent="Feels like "+Math.round(cur.apparent_temperature)+"°C";
+    document.getElementById("temp").textContent=Math.round(cur.temperature)+"°C";
+    document.getElementById("feel").textContent="Feels like "+Math.round(cur.apparent_temperature)+"°C";
 
-  document.getElementById("humidity").textContent=weather.hourly.relative_humidity_2m[0]+"%";
-  document.getElementById("pressure").textContent=weather.hourly.pressure_msl[0]+" hPa";
-  document.getElementById("wind").textContent=weather.hourly.windspeed_10m[0]+" km/h";
-  document.getElementById("windDir").textContent=weather.hourly.winddirection_10m[0]+"°";
-  document.getElementById("precip").textContent=weather.hourly.precipitation[0]+" mm";
-  document.getElementById("cloud").textContent=weather.hourly.cloudcover[0]+"%";
-  document.getElementById("vis").textContent=(weather.hourly.visibility[0]/1000).toFixed(1)+" km";
-  document.getElementById("uv").textContent=weather.hourly.uv_index[0];
-  document.getElementById("dew").textContent=weather.hourly.dew_point_2m[0]+"°C";
-  document.getElementById("sunrise").textContent=formatTime(weather.daily.sunrise[0]);
-  document.getElementById("sunset").textContent=formatTime(weather.daily.sunset[0]);
+    document.getElementById("humidity").textContent=weather.hourly.relative_humidity_2m[0]+"%";
+    document.getElementById("pressure").textContent=weather.hourly.pressure_msl[0]+" hPa";
+    document.getElementById("wind").textContent=weather.hourly.windspeed_10m[0]+" km/h";
+    document.getElementById("windDir").textContent=weather.hourly.winddirection_10m[0]+"°";
+    document.getElementById("precip").textContent=weather.hourly.precipitation[0]+" mm";
+    document.getElementById("cloud").textContent=weather.hourly.cloudcover[0]+"%";
+    document.getElementById("vis").textContent=(weather.hourly.visibility[0]/1000).toFixed(1)+" km";
+    document.getElementById("uv").textContent=weather.hourly.uv_index[0];
+    document.getElementById("dew").textContent=weather.hourly.dew_point_2m[0]+"°C";
+    document.getElementById("sunrise").textContent=formatTime(weather.daily.sunrise[0]);
+    document.getElementById("sunset").textContent=formatTime(weather.daily.sunset[0]);
 
-  const air=await getAQI(lastLat,lastLon);
-  const pm25=air.current?.pm2_5 ?? air.hourly.pm2_5[0];
-  const pm10=air.current?.pm10 ?? air.hourly.pm10[0];
-  const o3=air.current?.ozone ?? air.hourly.ozone[0];
-  const no2=air.current?.nitrogen_dioxide ?? air.hourly.nitrogen_dioxide[0];
+    const air=await getAQI(lastLat,lastLon);
+    const pm25=air.current?.pm2_5 ?? air.hourly.pm2_5[0];
+    const pm10=air.current?.pm10 ?? air.hourly.pm10[0];
+    const o3=air.current?.ozone ?? air.hourly.ozone[0];
+    const no2=air.current?.nitrogen_dioxide ?? air.hourly.nitrogen_dioxide[0];
 
-  document.getElementById("pm25").textContent=pm25.toFixed(1);
-  document.getElementById("pm10").textContent=pm10.toFixed(1);
-  document.getElementById("o3").textContent=o3.toFixed(1);
-  document.getElementById("no2").textContent=no2.toFixed(1);
+    document.getElementById("pm25").textContent=pm25.toFixed(1);
+    document.getElementById("pm10").textContent=pm10.toFixed(1);
+    document.getElementById("o3").textContent=o3.toFixed(1);
+    document.getElementById("no2").textContent=no2.toFixed(1);
 
-  const subAQI={"PM2.5":pm25,"PM10":pm10,"O₃":o3,"NO₂":no2};
-  const domPoll=Object.keys(subAQI).reduce((a,b)=>subAQI[a]>subAQI[b]?a:b);
-  document.getElementById("dominant").textContent=domPoll;
-  const AQIval=Math.max(...Object.values(subAQI));
+    const subAQI={"PM2.5":pm25,"PM10":pm10,"O₃":o3,"NO₂":no2};
+    const domPoll=Object.keys(subAQI).reduce((a,b)=>subAQI[a]>subAQI[b]?a:b);
+    document.getElementById("dominant").textContent=domPoll;
+    const AQIval=Math.max(...Object.values(subAQI));
 
-  document.getElementById("aqiValue").textContent="AQI "+Math.round(AQIval);
-  document.getElementById("aqiCategory").textContent=AQIval<=50?"Good":AQIval<=100?"Moderate":AQIval<=150?"Unhealthy (Sensitive)":AQIval<=200?"Unhealthy":"Very Unhealthy";
-  document.getElementById("aqiHealth").textContent=AQIval<=100?"Normal outdoor activity":"Limit prolonged exposure";
+    document.getElementById("aqiValue").textContent="AQI "+Math.round(AQIval);
+    document.getElementById("aqiCategory").textContent=AQIval<=50?"Good":AQIval<=100?"Moderate":AQIval<=150?"Unhealthy (Sensitive)":AQIval<=200?"Unhealthy":"Very Unhealthy";
+    document.getElementById("aqiHealth").textContent=AQIval<=100?"Normal outdoor activity":"Limit prolonged exposure";
 
-  applyAQITint(AQIval);
+    applyAQITint(AQIval);
 
-  const ctx=document.getElementById("pollChart").getContext("2d");
-  if(pollChart) pollChart.destroy();
-  pollChart=new Chart(ctx,{type:'bar',
-    data:{labels:Object.keys(subAQI),datasets:[{label:'Concentration',data:Object.values(subAQI),backgroundColor:['#00f','#0a0','#f80','#f00']}]},
-    options:{responsive:true,plugins:{legend:{display:false}}}
-  });
+    const ctx=document.getElementById("pollChart").getContext("2d");
+    if(pollChart) pollChart.destroy();
+    pollChart=new Chart(ctx,{type:'bar',
+      data:{labels:Object.keys(subAQI),datasets:[{label:'Concentration',data:Object.values(subAQI),backgroundColor:['#00f','#0a0','#f80','#f00']}]},
+      options:{responsive:true,plugins:{legend:{display:false}}}
+    });
 
-  const h=document.getElementById("hourly");
-  h.innerHTML="";
-  weather.hourly.temperature_2m.slice(0,24).forEach((t,i)=>{
-    h.innerHTML+=`<div class="row"><span>${i}:00</span><span>${t}°C</span></div>`;
-  });
+    const h=document.getElementById("hourly");
+    h.innerHTML="";
+    weather.hourly.temperature_2m.slice(0,24).forEach((t,i)=>{
+      h.innerHTML+=`<div class="row"><span>${i}:00</span><span>${t}°C</span></div>`;
+    });
 
-  const d=document.getElementById("daily");
-  d.innerHTML="";
-  weather.daily.time.forEach((date,i)=>{
-    d.innerHTML+=`<div class="row"><span>${date}</span><span>${weather.daily.temperature_2m_min[i]}° / ${weather.daily.temperature_2m_max[i]}°</span></div>`;
-  });
+    const d=document.getElementById("daily");
+    d.innerHTML="";
+    weather.daily.time.forEach((date,i)=>{
+      d.innerHTML+=`<div class="row"><span>${date}</span><span>${weather.daily.temperature_2m_min[i]}° / ${weather.daily.temperature_2m_max[i]}°</span></div>`;
+    });
 
-  const alertEl=document.getElementById("healthAlert");
-  if(AQIval<=50) alertEl.textContent="Air quality is good. Safe for all outdoor activities."; 
-  else if(AQIval<=100) alertEl.textContent="Air quality is moderate. Sensitive people should be cautious."; 
-  else if(AQIval<=150) alertEl.textContent="Unhealthy for sensitive groups. Reduce prolonged outdoor activity."; 
-  else if(AQIval<=200) alertEl.textContent="Unhealthy. Avoid outdoor activity, especially if you have asthma or eye conditions."; 
-  else alertEl.textContent="Very unhealthy. Stay indoors and limit any exposure outside.";
+    const alertEl=document.getElementById("healthAlert");
+    if(AQIval<=50) alertEl.textContent="Air quality is good. Safe for all outdoor activities."; 
+    else if(AQIval<=100) alertEl.textContent="Air quality is moderate. Sensitive people should be cautious."; 
+    else if(AQIval<=150) alertEl.textContent="Unhealthy for sensitive groups. Reduce prolonged outdoor activity."; 
+    else if(AQIval<=200) alertEl.textContent="Unhealthy. Avoid outdoor activity, especially if you have asthma or eye conditions."; 
+    else alertEl.textContent="Very unhealthy. Stay indoors and limit any exposure outside.";
+  } catch(e){console.error(e);}
 }
 
-// Auto-refresh
 setInterval(()=>loadWeather(DEFAULT_CITY),10*60*1000);
 
-// Initial load
 if("geolocation" in navigator){
   navigator.geolocation.getCurrentPosition(()=>loadWeather(null),()=>loadWeather(DEFAULT_CITY));
 }else loadWeather(DEFAULT_CITY);
 
-// Service Worker
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(console.error);}
 </script>
 </body>
