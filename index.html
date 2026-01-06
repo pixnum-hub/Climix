@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <title>Climix</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body{
   margin:0;
-  font-family:system-ui,-apple-system,Segoe UI;
-  background:radial-gradient(circle at top,#0a2a43,#000);
+  background:#000;
   color:#fff;
+  font-family:system-ui;
   display:flex;
   justify-content:center;
 }
@@ -20,38 +20,28 @@ body{
 }
 .card{
   background:rgba(255,255,255,0.08);
-  backdrop-filter:blur(14px);
-  border-radius:20px;
+  border-radius:18px;
   padding:16px;
-  margin-bottom:14px;
+  margin-bottom:12px;
 }
-h2,h3{margin:0 0 10px}
 .temp{
-  font-size:3.4rem;
+  font-size:3.5rem;
   font-weight:700;
 }
-.big{
-  font-size:1.3rem;
-}
-.grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-}
 .item{
-  background:rgba(0,0,0,0.25);
-  padding:12px;
-  border-radius:14px;
-  font-size:1.1rem;
+  background:rgba(0,0,0,0.3);
+  padding:10px;
+  border-radius:12px;
+  margin-bottom:6px;
 }
 input,button{
   width:100%;
   padding:14px;
   font-size:1.2rem;
-  border-radius:14px;
+  border-radius:12px;
   border:none;
 }
-button{margin-top:10px}
+button{margin-top:8px}
 </style>
 </head>
 <body>
@@ -60,49 +50,29 @@ button{margin-top:10px}
 
 <div class="card">
   <input id="city" placeholder="Enter city">
-  <button onclick="loadByCity()">Search</button>
+  <button onclick="search()">Search</button>
 </div>
 
 <div class="card">
   <div class="temp" id="temp">--°C</div>
-  <div class="big" id="place">Waiting…</div>
+  <div id="place">Loading…</div>
 </div>
 
 <div class="card">
-  <h3>📍 Location Conditions</h3>
-  <div class="grid" id="loc"></div>
+  <h3>Conditions</h3>
+  <div id="conditions"></div>
 </div>
 
 <div class="card">
-  <h3>🌫️ Air Quality (AQI)</h3>
-  <div class="grid" id="aqi"></div>
-</div>
-
-<div class="card">
-  <h3>🌡️ Hourly Temperature (24h)</h3>
-  <div id="hourly"></div>
-</div>
-
-<div class="card">
-  <h3>📅 7-Day Temperature</h3>
-  <div class="grid" id="week"></div>
-</div>
-
-<div class="card">
-  <h3>🌅 Sun & 🌙 Moon</h3>
-  <div class="grid" id="astro"></div>
-</div>
-
-<div class="card">
-  © Manik Roy 2025. All Rights Reserved.
+  © Manik Roy 2025
 </div>
 
 </div>
 
 <script>
-async function fetchJSON(url){
+async function getJSON(url){
   try{
-    const r=await fetch(url);
+    const r = await fetch(url);
     if(!r.ok) throw 0;
     return await r.json();
   }catch{
@@ -110,86 +80,49 @@ async function fetchJSON(url){
   }
 }
 
-async function loadByCity(){
-  const name=city.value.trim();
+async function search(){
+  const name = city.value.trim();
   if(!name) return;
 
-  const geo=await fetchJSON(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${name}&count=1`
+  const geo = await getJSON(
+    "https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(name)+"&count=1"
   );
   if(!geo || !geo.results) return;
 
-  const l=geo.results[0];
-  loadWeather(l.latitude,l.longitude,l.name);
+  const l = geo.results[0];
+  load(l.latitude, l.longitude, l.name);
 }
 
-async function loadWeather(lat,lon,name){
-  place.textContent=name;
+async function load(lat, lon, name){
+  place.textContent = name;
 
-  const w=await fetchJSON(
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}
-    &current_weather=true
-    &hourly=temperature_2m,relative_humidity_2m,pressure_msl,windspeed_10m,precipitation
-    &daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,moon_phase
-    &timezone=auto`
-  );
-  if(!w) return;
+  const url =
+    "https://api.open-meteo.com/v1/forecast"
+    +"?latitude="+lat
+    +"&longitude="+lon
+    +"&current_weather=true"
+    +"&hourly=temperature_2m,relative_humidity_2m,pressure_msl,windspeed_10m"
+    +"&timezone=auto";
 
-  temp.textContent=w.current_weather.temperature+"°C";
+  const w = await getJSON(url);
 
-  loc.innerHTML=`
+  if(!w || !w.current_weather){
+    temp.textContent="--°C";
+    conditions.innerHTML="<div class='item'>Offline or network blocked</div>";
+    return;
+  }
+
+  temp.textContent = w.current_weather.temperature+"°C";
+
+  conditions.innerHTML = `
     <div class="item">Humidity: ${w.hourly.relative_humidity_2m[0]}%</div>
     <div class="item">Pressure: ${w.hourly.pressure_msl[0]} hPa</div>
     <div class="item">Wind: ${w.current_weather.windspeed} km/h</div>
-    <div class="item">Rain: ${w.hourly.precipitation[0]} mm</div>
-    <div class="item">Latitude: ${lat.toFixed(2)}</div>
-    <div class="item">Longitude: ${lon.toFixed(2)}</div>
     <div class="item">Timezone: ${w.timezone}</div>
-    <div class="item">Elevation: ${w.elevation} m</div>
-    <div class="item">Day Max: ${w.daily.temperature_2m_max[0]}°C</div>
-    <div class="item">Day Min: ${w.daily.temperature_2m_min[0]}°C</div>
-  `;
-
-  const aq=await fetchJSON(
-    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}
-    &hourly=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,ammonia`
-  );
-  if(aq){
-    aqi.innerHTML=`
-      <div class="item">AQI: ${aq.hourly.us_aqi[0]}</div>
-      <div class="item">PM2.5: ${aq.hourly.pm2_5[0]}</div>
-      <div class="item">PM10: ${aq.hourly.pm10[0]}</div>
-      <div class="item">O₃: ${aq.hourly.ozone[0]}</div>
-      <div class="item">NO₂: ${aq.hourly.nitrogen_dioxide[0]}</div>
-      <div class="item">SO₂: ${aq.hourly.sulphur_dioxide[0]}</div>
-      <div class="item">CO: ${aq.hourly.carbon_monoxide[0]}</div>
-      <div class="item">NH₃: ${aq.hourly.ammonia[0]}</div>
-      <div class="item">Category: ${aq.hourly.us_aqi[0]<50?"Good":"Poor"}</div>
-      <div class="item">Health: Limit outdoor activity</div>
-    `;
-  }
-
-  hourly.innerHTML="";
-  for(let i=0;i<24;i++){
-    hourly.innerHTML+=`<div class="item">Hour ${i}: ${w.hourly.temperature_2m[i]}°C</div>`;
-  }
-
-  week.innerHTML="";
-  for(let i=0;i<7;i++){
-    week.innerHTML+=`
-      <div class="item">Day ${i+1}<br>${w.daily.temperature_2m_min[i]}° / ${w.daily.temperature_2m_max[i]}°</div>
-    `;
-  }
-
-  astro.innerHTML=`
-    <div class="item">Sunrise: ${w.daily.sunrise[0].split("T")[1]}</div>
-    <div class="item">Sunset: ${w.daily.sunset[0].split("T")[1]}</div>
-    <div class="item">Moon phase: ${w.daily.moon_phase[0]}</div>
-    <div class="item">Day length: Auto</div>
   `;
 }
 
-loadWeather(28.61,77.20,"Delhi");
+load(28.61,77.20,"Delhi");
 </script>
 </body>
 </html>
