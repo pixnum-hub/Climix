@@ -44,6 +44,7 @@ button{width:28%;background:#222;color:#fff}
 </div>
 
 <div class="card">
+<div id="cityName" class="sub">--</div>
 <div id="temp" class="big">--°C</div>
 <div id="feel" class="sub">Feels like --°C</div>
 </div>
@@ -125,11 +126,21 @@ async function getAQI(lat, lon){return await fetch(`https://air-quality-api.open
 // Load data
 async function loadWeather(city=null){
  try{
-   let loc; if(city){loc=await getCoords(city);lastLat=loc.latitude;lastLon=loc.longitude;} else loc={latitude:lastLat,longitude:lastLon};
+   let loc; 
+   if(city){loc=await getCoords(city);lastLat=loc.latitude;lastLon=loc.longitude;} 
+   else loc={latitude:lastLat,longitude:lastLon};
    const [weather,air]=await Promise.all([getWeather(loc.latitude,loc.longitude),getAQI(loc.latitude,loc.longitude)]);
+
    const cur=weather.current_weather;
-   document.getElementById("temp").textContent=cur.temperature+"°C";
-   document.getElementById("feel").textContent="Feels like "+cur.apparent_temperature+"°C";
+   const curTemp = cur.temperature;
+   let feelsLike = cur.apparent_temperature;
+   if(feelsLike===undefined && weather.hourly.apparent_temperature){
+     feelsLike = weather.hourly.apparent_temperature[0];
+   }
+
+   document.getElementById("cityName").textContent = loc.name + (loc.country ? ", "+loc.country : "");
+   document.getElementById("temp").textContent = curTemp+"°C";
+   document.getElementById("feel").textContent = "Feels like "+feelsLike+"°C";
 
    // Location Conditions
    document.getElementById("humidity").textContent = weather.hourly.relative_humidity_2m[0]+"%";
