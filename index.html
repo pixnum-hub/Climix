@@ -12,9 +12,7 @@
 body{background:#000;color:#fff;display:flex;justify-content:center;transition:background 0.3s,color 0.3s}
 body.oled{background:#000;color:#fff}
 :root{--aqi-tint:rgba(0,0,0,0)}
-.app{
-  max-width:420px;width:100%;padding:16px;background:#000;transition:background 0.3s,box-shadow 0.3s;
-}
+.app{max-width:420px;width:100%;padding:16px;background:#000;transition:background 0.3s,box-shadow 0.3s}
 .app.aqi{box-shadow: inset 0 0 50px var(--aqi-tint);}
 .card{background:rgba(255,255,255,.08);backdrop-filter:blur(14px);border-radius:18px;padding:16px;margin-bottom:14px}
 h2{font-size:1.25rem;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:6px;margin-bottom:10px}
@@ -87,7 +85,6 @@ button{width:28%;background:#222;color:#fff}
 <div class="card">
 <h2>Pollutant Breakdown (24h)</h2>
 <canvas id="pollChart" height="180"></canvas>
-<div class="hourly" id="pollHours"></div>
 </div>
 
 <div class="card">
@@ -114,6 +111,7 @@ button{width:28%;background:#222;color:#fff}
 <script>
 let lastLat=22.5726,lastLon=88.3639,lastCity="Kolkata, India";
 let dark=true;let pollChart;
+const DEFAULT_CITY = "Kolkata";
 
 function toggleDark(){
   dark=!dark;
@@ -153,22 +151,22 @@ async function getCoords(city){
 }
 
 async function getWeather(lat,lon){
-  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-    `&current_weather=true&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,cloudcover,precipitation,uv_index,dew_point_2m,visibility,windspeed_10m,winddirection_10m` +
-    `&daily=temperature_2m_min,temperature_2m_max,sunrise,sunset&timezone=auto`;
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
+  `&current_weather=true&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,cloudcover,precipitation,uv_index,dew_point_2m,visibility,windspeed_10m,winddirection_10m`+
+  `&daily=temperature_2m_min,temperature_2m_max,sunrise,sunset,time&timezone=auto`;
   const res=await fetch(url);
   return res.json();
 }
 
 async function getAQI(lat,lon){
-  const url=`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}` +
-    `&current=pm2_5,pm10,ozone,nitrogen_dioxide&hourly=pm2_5,pm10,ozone,nitrogen_dioxide&timezone=auto`;
+  const url=`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}`+
+  `&current=pm2_5,pm10,ozone,nitrogen_dioxide&hourly=pm2_5,pm10,ozone,nitrogen_dioxide&timezone=auto`;
   const res=await fetch(url);
   return res.json();
 }
 
 async function loadWeather(cityInput){
-  const loc=await getCoords(cityInput);
+  const loc=await getCoords(cityInput || DEFAULT_CITY);
   lastLat=loc.latitude; lastLon=loc.longitude;
   lastCity=loc.name+(loc.country?`, ${loc.country}`:"");
   document.getElementById("cityName").textContent=lastCity;
@@ -206,28 +204,47 @@ async function loadWeather(cityInput){
   const domPoll=Object.keys(subAQI).reduce((a,b)=>subAQI[a]>subAQI[b]?a:b);
   document.getElementById("dominant").textContent=domPoll;
   const AQIval=Math.max(...Object.values(subAQI));
+
   document.getElementById("aqiValue").textContent="AQI "+Math.round(AQIval);
   document.getElementById("aqiCategory").textContent=AQIval<=50?"Good":AQIval<=100?"Moderate":AQIval<=150?"Unhealthy (Sensitive)":AQIval<=200?"Unhealthy":"Very Unhealthy";
   document.getElementById("aqiHealth").textContent=AQIval<=100?"Normal outdoor activity":"Limit prolonged exposure";
 
   applyAQITint(AQIval);
 
-  // Pollutant chart
   const ctx=document.getElementById("pollChart").getContext("2d");
   if(pollChart) pollChart.destroy();
   pollChart=new Chart(ctx,{type:'bar',
     data:{labels:Object.keys(subAQI),datasets:[{label:'Concentration',data:Object.values(subAQI),backgroundColor:['#00f','#0a0','#f80','#f00']}]},
     options:{responsive:true,plugins:{legend:{display:false}}}
   });
+
+  const h=document.getElementById("hourly");
+  h.innerHTML="";
+  weather.hourly.temperature_2m.slice(0,24).forEach((t,i)=>{
+    h.innerHTML+=`<div class="row"><span>${i}:00</span><span>${t}°C</span></div>`;
+  });
+
+  const d=document.getElementById("daily");
+  d.innerHTML="";
+  weather.daily.time.forEach((date,i)=>{
+    d.innerHTML+=`<div class="row"><span>${date}</span><span>${weather.daily.temperature_2m_min[i]}° / ${weather.daily.temperature_2m_max[i]}°</span></div>`;
+  });
+
+  const alertEl=document.getElementById("healthAlert");
+  if(AQIval<=50) alertEl.textContent="Air quality is good. Safe for all outdoor activities."; 
+  else if(AQIval<=100) alertEl.textContent="Air quality is moderate. Sensitive people should be cautious."; 
+  else if(AQIval<=150) alertEl.textContent="Unhealthy for sensitive groups. Reduce prolonged outdoor activity."; 
+  else if(AQIval<=200) alertEl.textContent="Unhealthy. Avoid outdoor activity, especially if you have asthma or eye conditions."; 
+  else alertEl.textContent="Very unhealthy. Stay indoors and limit any exposure outside.";
 }
 
-// Auto-location and auto-refresh
+// Auto-refresh
+setInterval(()=>loadWeather(DEFAULT_CITY),10*60*1000);
+
+// Initial load
 if("geolocation" in navigator){
-  navigator.geolocation.getCurrentPosition(()=>loadWeather(null),()=>loadWeather(null));
-}else{
-  loadWeather(null);
-}
-setInterval(()=>loadWeather(null),10*60*1000);
+  navigator.geolocation.getCurrentPosition(()=>loadWeather(null),()=>loadWeather(DEFAULT_CITY));
+}else loadWeather(DEFAULT_CITY);
 
 // Service Worker
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(console.error);}
