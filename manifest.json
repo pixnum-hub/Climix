@@ -1,12 +1,13 @@
 {
-  "name": "Climix",
+  "name": "Climix – Weather & AQI",
   "short_name": "Climix",
-  "description": "Numerical weather + AQI app by Manik Roy",
+  "description": "Numerical weather and air quality app by Manik Roy",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#000000",
   "theme_color": "#000000",
-  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "icon-512.png",
