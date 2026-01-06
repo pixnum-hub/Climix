@@ -2,53 +2,50 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Climix</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#000">
 <link rel="manifest" href="manifest.json">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
-:root{
- --bg:#0b1220;
- --glass:rgba(255,255,255,.12);
- --text:#fff;
- --accent:#00ffd5;
-}
-*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+*{margin:0;padding:0;box-sizing:border-box}
 body{
- background:radial-gradient(circle at top,#111,#000);
- color:var(--text);
+ min-height:100vh;
  display:flex;
  justify-content:center;
- min-height:100vh;
+ font-family:system-ui,-apple-system,Segoe UI;
+ background:linear-gradient(145deg,#050b18,#081a2e,#0a2236);
+ color:#eaf1ff;
+ overflow-y:auto;
+ -webkit-overflow-scrolling:touch;
 }
-body.amoled{background:#000}
+body.dark{background:#000}
 .app{
  width:100%;
  max-width:420px;
  padding:14px;
+ margin:14px;
+ border-radius:28px;
+ background:rgba(10,16,30,.85);
+ backdrop-filter:blur(28px);
+ box-shadow:0 30px 80px rgba(0,0,0,.85);
 }
-.header{
- display:flex;
- justify-content:space-between;
- align-items:center;
- margin-bottom:10px;
-}
-h1{font-size:22px}
-.toggle{
- background:#000;
- border:1px solid #333;
- border-radius:50%;
- width:36px;
- height:36px;
- color:#fff;
- cursor:pointer;
-}
+body.dark .app{background:#000}
 .card{
- background:var(--glass);
- backdrop-filter:blur(14px);
- border-radius:18px;
+ background:rgba(25,35,55,.55);
+ border-radius:20px;
  padding:14px;
  margin-bottom:12px;
+}
+body.dark .card{background:rgba(20,20,20,.9)}
+.center{text-align:center}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.box{
+ background:rgba(0,0,0,.35);
+ padding:10px;
+ border-radius:14px;
+ font-size:13px;
+ text-align:center;
 }
 input,button{
  width:100%;
@@ -57,199 +54,230 @@ input,button{
  border-radius:14px;
  font-size:15px;
 }
-input{background:#000;color:#fff;margin-bottom:8px;}
-button{background:var(--accent);color:#000;font-weight:600;cursor:pointer;}
-button:active{transform:scale(.98);}
-.small{font-size:12px;opacity:.7;text-align:center;}
-#iosBanner{display:none;background:#000;border:1px solid #333;padding:10px;border-radius:14px;font-size:13px;text-align:center;margin-bottom:10px;}
-#installSuccess{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.9);color:#00ffd5;font-size:22px;z-index:9999;animation:pop .6s ease;}
-@keyframes pop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
-#network{text-align:center;font-size:12px;margin-bottom:8px;opacity:.8;}
-canvas{width:100%!important;height:150px!important;margin-top:10px;}
+input{background:rgba(255,255,255,.12);color:#fff}
+button{
+ background:#1f6feb;
+ color:#fff;
+ font-weight:600;
+ margin-top:8px;
+}
+body.dark button{background:#222}
+.temp{font-size:46px;font-weight:700}
+.hourly{max-height:240px;overflow-y:auto}
+.hour{
+ display:flex;
+ justify-content:space-between;
+ padding:8px 12px;
+ margin-bottom:6px;
+ border-radius:12px;
+ background:rgba(0,0,0,.25);
+ font-size:14px;
+}
+footer{text-align:center;font-size:12px;opacity:.6;margin-top:10px}
+.topbar{display:flex;justify-content:space-between;margin-bottom:8px;gap:8px}
+.topbar button{width:44px;height:44px;border-radius:50%;padding:0;font-size:18px}
 </style>
 </head>
+
 <body>
 <div class="app">
 
-<!-- iOS helper -->
-<div id="iosBanner">
-📲 Install this app<br>Tap <b>Share</b> → <b>Add to Home Screen</b>
+<div class="topbar">
+<button id="modeBtn">🌙</button>
+<button id="installBtn" style="display:none">⬇️</button>
 </div>
 
-<div class="header">
- <h1>Climix</h1>
- <button class="toggle" id="amoled">🖤</button>
-</div>
-
-<div id="network">📶 Checking network…</div>
+<div class="card center"><h2>Climix</h2></div>
 
 <div class="card">
- <input id="city" placeholder="Enter city">
- <button onclick="search()">Search</button>
- <button onclick="useGPS()">📍 Use My Location</button>
+<input id="city" placeholder="Enter city">
+<button onclick="search()">Search</button>
 </div>
 
-<div class="card">
- <b>Status</b>
- <div id="status" class="small">Waiting for network & location…</div>
+<div class="card center">
+<div class="temp" id="temp">--°C</div>
+<div id="place">Ready</div>
 </div>
 
-<div class="card">
- <b>Sun / Moon</b>
- <div class="small">
- 🌅 Sunrise: <span id="sunrise">—</span><br>
- 🌇 Sunset: <span id="sunset">—</span><br>
- 🌙 Moon: <span id="moon">—</span>
- </div>
+<div class="card center">
+<h4>⚠️ Weather Alerts</h4>
+<div id="alertsText">—</div>
 </div>
 
 <div class="card">
- <b>Current Weather</b>
- <div class="small">
- Temp: <span id="temp">—</span>°C<br>
- Wind: <span id="wind">—</span> km/h<br>
- Precip: <span id="precip">—</span>%
- </div>
+<h4>🌧️ Rain & Precipitation</h4>
+<div class="grid" id="rainBox"></div>
 </div>
 
 <div class="card">
- <b>AQI</b>
- <div class="small">
- AQI: <span id="aqi">—</span><br>
- Health Score: <span id="aqiScore">—</span><br>
- Trend: <span id="aqiTrend">—</span><br>
- Safe Outdoor In: <span id="safeTime">—</span>
- </div>
+<h4>📍 Location Conditions</h4>
+<div class="grid" id="locationBox"></div>
 </div>
 
 <div class="card">
- <canvas id="aqiChart"></canvas>
+<h4>🌅 Sun & 🌙 Moon</h4>
+<div class="grid" id="astroBox"></div>
 </div>
 
 <div class="card">
- <canvas id="tempChart"></canvas>
+<h4>🌫️ Air Quality (AQI)</h4>
+<div class="grid" id="aqiBox"></div>
 </div>
 
-<button id="installBtn" style="display:none">⬇️ Install App</button>
-
-<div class="small" style="text-align:center;margin-top:10px">
-Installs: <span id="installCount">0</span><br>
-© Manik Roy 2025. All Rights Reserved.
+<div class="card">
+<h4>🌡️ Hourly Temperature (24h)</h4>
+<div class="hourly" id="hourly"></div>
 </div>
 
+<div class="card center">
+<h4>🕒 24-Hour Summary</h4>
+<div class="grid" id="summary"></div>
 </div>
-<div id="installSuccess">🎉 App Installed!</div>
+
+<footer>© Manik Roy 2025. All Rights Reserved.</footer>
+</div>
 
 <script>
-// ----------------- MOBILE SAFE -----------------
-let deferredPrompt;
-window.addEventListener("beforeinstallprompt", e=>{
- e.preventDefault(); deferredPrompt=e;
- if(!localStorage.getItem("installed")) installBtn.style.display="block";
-});
+/* ALL ORIGINS PROXY */
+const proxy = "https://api.allorigins.win/raw?url=";
 
-// ----------------- AMOLED -----------------
-amoled.onclick=()=>{document.body.classList.toggle("amoled");localStorage.setItem("amoled",document.body.classList.contains("amoled"));}
-if(localStorage.getItem("amoled")==="true") document.body.classList.add("amoled");
-
-// ----------------- NETWORK -----------------
-function net(){
- network.textContent = navigator.onLine?"📶 Online":"❌ Offline (cached UI)";
-}
-window.addEventListener("online",net);
-window.addEventListener("offline",net);
-net();
-
-// ----------------- IOS BANNER -----------------
-const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
-const isStandalone=window.matchMedia('(display-mode: standalone)').matches;
-if(isIOS&&!isStandalone) iosBanner.style.display="block";
-
-// ----------------- INSTALL BUTTON -----------------
-installBtn.onclick=async()=>{
- if(!deferredPrompt) return;
- deferredPrompt.prompt();
- const c=await deferredPrompt.userChoice;
- if(c.outcome==="accepted"){
-  installBtn.style.display="none";
-  localStorage.setItem("installed","1");
-  installSuccess.style.display="flex";
-  setTimeout(()=>installSuccess.style.display="none",1800);
+/* SAFE FETCH WITH PROXY */
+async function safeFetch(url){
+ try{
+  const fullUrl = proxy + encodeURIComponent(url);
+  const r = await fetch(fullUrl);
+  if(!r.ok) throw new Error("Network error");
+  return await r.json();
+ }catch(e){
+  alert("Network error: Unable to load data on mobile.");
+  throw e;
  }
+}
+
+/* DARK MODE */
+modeBtn.onclick=()=>{
+ document.body.classList.toggle("dark");
+ localStorage.setItem("mode",document.body.classList.contains("dark"));
+ modeBtn.innerText=document.body.classList.contains("dark")?"☀️":"🌙";
+};
+if(localStorage.getItem("mode")==="true"){
+ document.body.classList.add("dark");
+ modeBtn.innerText="☀️";
+}
+
+/* INSTALL PWA */
+let deferredPrompt;
+window.addEventListener("beforeinstallprompt",e=>{
+ e.preventDefault();
+ deferredPrompt=e;
+ installBtn.style.display="block";
+});
+installBtn.onclick=async()=>{
+ if(!deferredPrompt)return;
+ deferredPrompt.prompt();
+ await deferredPrompt.userChoice;
+ installBtn.style.display="none";
  deferredPrompt=null;
 };
 
-// ----------------- INSTALL ANALYTICS -----------------
-let installs=Number(localStorage.getItem("installCount")||0);
-window.addEventListener("appinstalled",()=>{installs++;localStorage.setItem("installCount",installs);installCount.textContent=installs;});
-installCount.textContent=installs;
-if(localStorage.getItem("installed")) installBtn.style.display="none";
+/* DEFAULT CITY */
+window.onload=()=>loadWeather(28.6139,77.209,"Delhi");
 
-// ----------------- GEO -----------------
-function useGPS(){
- navigator.geolocation.getCurrentPosition(p=>{
-  loadWeather(p.coords.latitude,p.coords.longitude,"Your Location");
+/* SEARCH */
+async function search(){
+ if(!city.value)return;
+ const g = await safeFetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city.value}`);
+ if(!g.results)return;
+ const c=g.results[0];
+ loadWeather(c.latitude,c.longitude,c.name);
+}
+
+/* WEATHER */
+async function loadWeather(lat,lon,name){
+ const d = await safeFetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,windspeed_10m,winddirection_10m,precipitation,precipitation_probability&timezone=auto`);
+ temp.innerText=d.current_weather.temperature+"°C";
+ place.innerText=name;
+ renderHourly(d.hourly);
+ renderSummary(d.hourly);
+ renderLocation(d,lat,lon);
+ renderRain(d.hourly);
+ detectHeat(d.hourly.temperature_2m.slice(0,24));
+ loadAQI(lat,lon);
+ loadAstronomy(lat,lon);
+}
+
+/* HOURLY */
+function renderHourly(h){
+ hourly.innerHTML="";
+ h.temperature_2m.slice(0,24).forEach((t,i)=>{
+  hourly.innerHTML+=`<div class="hour"><span>${new Date(h.time[i]).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span><span>${t}°C</span></div>`;
  });
 }
 
-// ----------------- SEARCH -----------------
-async function search(){
- const q=city.value.trim();
- if(!q) return;
- const geo=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${q}&count=1`).then(r=>r.json()).catch(()=>null);
- if(!geo?.results) return status.textContent="❌ Location not found";
- const loc=geo.results[0];
- loadWeather(loc.latitude,loc.longitude,loc.name);
+/* SUMMARY */
+function renderSummary(h){
+ const t=h.temperature_2m.slice(0,24);
+ summary.innerHTML=`<div class="box">Min<br><b>${Math.min(...t)}°C</b></div><div class="box">Max<br><b>${Math.max(...t)}°C</b></div><div class="box">Avg<br><b>${(t.reduce((a,b)=>a+b,0)/24).toFixed(1)}°C</b></div>`;
 }
 
-// ----------------- WEATHER + AQI -----------------
-async function loadWeather(lat,lon,name){
- status.textContent="Loading weather...";
- placeName=name;
- try{
-  const w=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,precipitation_probability&daily=sunrise,sunset&timezone=auto`).then(r=>r.json());
-  const a=await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi`).then(r=>r.json());
-
-  // Weather
-  temp.textContent=w.current_weather.temperature;
-  wind.textContent=w.current_weather.windspeed;
-  precip.textContent=w.hourly.precipitation_probability[0];
-
-  sunrise.textContent=w.daily.sunrise[0];
-  sunset.textContent=w.daily.sunset[0];
-  moon.textContent="Waxing Crescent"; // simplified
-
-  // AQI
-  const aqiNow=a.hourly.us_aqi[0];
-  aqi.textContent=aqiNow;
-  aqiScore.textContent=Math.max(0,100-aqiNow);
-  aqiTrend.textContent="Stable"; // basic trend
-  safeTime.textContent="1h";
-
-  // Cache
-  localStorage.setItem("lastWeather",JSON.stringify({w,a}));
-
-  // Charts
-  const hours=Array.from({length:24},(_,i)=>i+"h");
-  const aqiData=a.hourly.us_aqi.slice(0,24);
-  new Chart(aqiChart,{type:'line',data:{labels:hours,datasets:[{label:'AQI',data:aqiData,borderColor:'red',fill:false,tension:0.2}]}});
-  const tempData=w.hourly.temperature_2m.slice(0,24);
-  new Chart(tempChart,{type:'line',data:{labels:hours,datasets:[{label:'Temp °C',data:tempData,borderColor:'orange',fill:false,tension:0.2}]}});
-
-  status.textContent="Weather loaded successfully";
- }catch(e){
-  status.textContent="⚠️ Failed to load, using cached data";
-  const cached=JSON.parse(localStorage.getItem("lastWeather")||"{}");
-  if(cached.w){temp.textContent=cached.w.current_weather.temperature;wind.textContent=cached.w.current_weather.windspeed;precip.textContent=cached.w.hourly.precipitation_probability[0];}
- }
+/* HEAT ALERT */
+function detectHeat(t){
+ const m=Math.max(...t);
+ alertsText.innerHTML=`Max 24h: <b>${m}°C</b><br>${m>=45?"🚨 Severe Heatwave":m>=42?"🔥 Heatwave":m>=38?"⚠️ Heat Alert":"Normal 🌤️"}`;
 }
 
-// ----------------- BACKGROUND REFRESH -----------------
-setInterval(()=>{
- if(document.visibilityState==="visible" && navigator.onLine && placeName){
-  search();
- }
-},15*60*1000);
+/* RAIN */
+function renderRain(h){
+ rainBox.innerHTML=`<div class="box">Rain<br><b>${h.precipitation[0]} mm</b></div><div class="box">Chance<br><b>${h.precipitation_probability[0]}%</b></div>`;
+}
+
+/* LOCATION CONDITIONS */
+function renderLocation(d,lat,lon){
+ locationBox.innerHTML=`
+<div class="box">Lat<br><b>${lat.toFixed(2)}</b></div>
+<div class="box">Lon<br><b>${lon.toFixed(2)}</b></div>
+<div class="box">Elev<br><b>${d.elevation} m</b></div>
+<div class="box">TZ<br><b>${d.timezone}</b></div>
+<div class="box">Temp<br><b>${d.current_weather.temperature}°C</b></div>
+<div class="box">Feels<br><b>${d.hourly.apparent_temperature[0]}°C</b></div>
+<div class="box">Humid<br><b>${d.hourly.relative_humidity_2m[0]}%</b></div>
+<div class="box">Press<br><b>${d.hourly.pressure_msl[0]}</b></div>
+<div class="box">Wind<br><b>${d.current_weather.windspeed}</b></div>
+<div class="box">Dir<br><b>${d.hourly.winddirection_10m[0]}°</b></div>`;
+}
+
+/* AQI */
+async function loadAQI(lat,lon){
+ const a = await safeFetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide`);
+ const v=a.hourly.us_aqi[0];
+ aqiBox.innerHTML=`
+<div class="box">AQI<br><b>${v}</b></div>
+<div class="box">PM2.5<br><b>${a.hourly.pm2_5[0]}</b></div>
+<div class="box">PM10<br><b>${a.hourly.pm10[0]}</b></div>
+<div class="box">O₃<br><b>${a.hourly.ozone[0]}</b></div>
+<div class="box">NO₂<br><b>${a.hourly.nitrogen_dioxide[0]}</b></div>
+<div class="box">SO₂<br><b>${a.hourly.sulphur_dioxide[0]}</b></div>
+<div class="box">CO<br><b>${a.hourly.carbon_monoxide[0]}</b></div>`;
+}
+
+/* SUN & MOON */
+async function loadAstronomy(lat,lon){
+ const d = await safeFetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset,moon_phase&timezone=auto`);
+ const sr=new Date(d.daily.sunrise[0]).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+ const ss=new Date(d.daily.sunset[0]).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+ const mp=d.daily.moon_phase[0];
+ const phase=mp<0.125?"New Moon 🌑":mp<0.375?"First Quarter 🌓":mp<0.625?"Full Moon 🌕":mp<0.875?"Last Quarter 🌗":"New Moon 🌑";
+ astroBox.innerHTML=`
+<div class="box">Sunrise<br><b>${sr}</b></div>
+<div class="box">Sunset<br><b>${ss}</b></div>
+<div class="box">Moon Phase<br><b>${phase}</b></div>
+<div class="box">Moon Index<br><b>${mp.toFixed(2)}</b></div>`;
+}
+
+/* SAFE SERVICE WORKER */
+if("serviceWorker" in navigator){
+ navigator.serviceWorker.register("sw.js");
+}
 </script>
 </body>
 </html>
