@@ -1,22 +1,16 @@
 {
-  "name": "Climix Pro",
+  "name": "Climix",
   "short_name": "Climix",
-  "description": "Advanced weather forecast PWA with AQI, 7-day forecast, charts, and alerts.",
-  "start_url": ".",
+  "description": "Numerical weather + AQI app by Manik Roy",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
-  "orientation": "portrait",
-  "scope": ".",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
-    },
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
       "type": "image/png"
     }
   ]
