@@ -2,45 +2,32 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Climix Base</title>
+<title>Climix Step2</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  body {
-    margin:0; padding:0;
-    font-family: system-ui,-apple-system,Segoe UI;
-    background: linear-gradient(145deg,#050b18,#081a2e,#0a2236);
-    color: #eaf1ff;
-    display: flex;
-    justify-content: center;
-    min-height: 100vh;
-  }
-  .app {
-    width: 100%;
-    max-width: 420px;
-    padding: 16px;
-    margin: 16px;
-    border-radius: 28px;
-    background: rgba(10,16,30,.85);
-    backdrop-filter: blur(28px);
-  }
-  .card {
-    background: rgba(25,35,55,.55);
-    border-radius: 20px;
-    padding: 14px;
-    margin-bottom: 12px;
-  }
-  .center { text-align: center; }
-  input, button { width: 100%; padding: 12px; border-radius: 14px; border: none; margin-top: 6px; }
-  button { background: #1f6feb; color:#fff; font-weight:600; cursor:pointer; }
-  #modeBtn { width: 44px; height: 44px; border-radius: 50%; font-size: 18px; margin-bottom:10px; }
+body {margin:0;padding:0;font-family:system-ui;display:flex;justify-content:center;background:linear-gradient(145deg,#050b18,#081a2e,#0a2236);color:#eaf1ff;min-height:100vh;}
+body.dark{background:#000}
+.app{width:100%;max-width:420px;padding:16px;margin:16px;border-radius:28px;background:rgba(10,16,30,.85);backdrop-filter:blur(28px);}
+.card{background:rgba(25,35,55,.55);border-radius:20px;padding:14px;margin-bottom:12px;}
+.center{text-align:center}
+input,button{width:100%;padding:12px;border:none;border-radius:14px;margin-top:6px;}
+button{background:#1f6feb;color:#fff;font-weight:600;cursor:pointer;}
+#modeBtn{width:44px;height:44px;border-radius:50%;font-size:18px;margin-bottom:10px;}
+.hourly{max-height:200px;overflow-y:auto;margin-top:6px;}
+.hour{display:flex;justify-content:space-between;padding:6px 10px;margin-bottom:4px;background:rgba(0,0,0,.2);border-radius:12px;font-size:14px;}
+canvas{background:rgba(255,255,255,0.05);border-radius:12px;margin-top:6px;}
+.topbar{display:flex;justify-content:space-between;margin-bottom:8px;}
+.topbar button{width:44px;height:44px;border-radius:50%;font-size:18px;}
 </style>
 </head>
 <body>
 <div class="app">
-  <div class="center">
+  <div class="center topbar">
     <button id="modeBtn">🌙</button>
-    <h2>Climix</h2>
   </div>
+
+  <div class="card center"><h2>Climix</h2></div>
 
   <div class="card">
     <input id="city" placeholder="Enter city">
@@ -56,61 +43,100 @@
   <div class="card center">
     <h3>Rain / Precipitation</h3>
     <div id="rain">-- mm / --%</div>
+    <canvas id="rainChart" height="120"></canvas>
+    <button onclick="retryRain()">Retry Rain</button>
   </div>
 
   <div class="card center">
     <h3>Air Quality (AQI)</h3>
     <div id="aqi">--</div>
+    <canvas id="aqiChart" height="120"></canvas>
+    <button onclick="retryAQI()">Retry AQI</button>
+  </div>
+
+  <div class="card">
+    <h3>Hourly Temperature (24h)</h3>
+    <div class="hourly" id="hourly"></div>
+    <div class="grid" id="summary"></div>
+  </div>
+
+  <div class="card center">
+    <h3>Weather Alerts</h3>
+    <div id="alertsText">--</div>
+    <button onclick="retryWeather()">Retry Weather</button>
   </div>
 </div>
 
 <script>
-const modeBtn = document.getElementById('modeBtn');
-modeBtn.onclick = () => {
-  document.body.classList.toggle('dark');
-  modeBtn.innerText = document.body.classList.contains('dark') ? '☀️' : '🌙';
-};
+const modeBtn=document.getElementById('modeBtn');
+modeBtn.onclick=()=>{document.body.classList.toggle('dark');modeBtn.innerText=document.body.classList.contains('dark')?"☀️":"🌙";};
+if(localStorage.getItem('mode')==='true'){document.body.classList.add('dark');modeBtn.innerText="☀️";}
 
-async function fetchJSON(url, fallback) {
-  try {
-    const res = await fetch(url);
-    if(!res.ok) throw new Error("Network error");
-    return await res.json();
-  } catch(e) {
-    console.warn(e);
-    return fallback;
-  }
-}
+let tempChart,aqiChart,rainChart;
 
-async function searchCity() {
-  const cityName = document.getElementById('city').value;
-  if(!cityName) return;
-  // Geocoding API
-  const geo = await fetchJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${cityName}`, {results:[{latitude:28.6139, longitude:77.209, name:'Delhi'}]});
-  const loc = geo.results[0];
-  loadWeather(loc.latitude, loc.longitude, loc.name);
-}
+async function fetchJSON(url,fallback){try{const r=await fetch(url);if(!r.ok)throw new Error("Network");return await r.json();}catch(e){console.warn(e);return fallback;}}
 
-async function loadWeather(lat, lon, name) {
-  place.innerText = name;
-  temp.innerText = 'Loading...';
-  rain.innerText = '-- mm / --%';
-  aqi.innerText = '--';
+async function searchCity(){const cityName=document.getElementById('city').value;if(!cityName)return;const geo=await fetchJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${cityName}`,{results:[{latitude:28.6139,longitude:77.209,name:'Delhi'}]});const loc=geo.results[0];loadWeather(loc.latitude,loc.longitude,loc.name);}
+
+async function loadWeather(lat,lon,name){
+  place.innerText=name;
+  temp.innerText='Loading...';
+  rain.innerText='-- mm / --%';
+  aqi.innerText='--';
+  alertsText.innerText='Loading...';
 
   // Weather
-  const weather = await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=precipitation,precipitation_probability&timezone=auto`, {
-    current_weather: {temperature:25},
-    hourly: {precipitation:[0], precipitation_probability:[0]}
-  });
-  temp.innerText = weather.current_weather.temperature + "°C";
-  rain.innerText = weather.hourly.precipitation[0]+" mm / "+weather.hourly.precipitation_probability[0]+"%";
+  const weather=await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,precipitation,precipitation_probability&timezone=auto`,{current_weather:{temperature:25},hourly:{temperature_2m:Array(24).fill(25),precipitation:Array(24).fill(0),precipitation_probability:Array(24).fill(0),time:Array(24).fill(new Date().toISOString())}});
+  temp.innerText=weather.current_weather.temperature+"°C";
+  renderHourly(weather.hourly);
+  renderSummary(weather.hourly);
+  renderRain(weather.hourly);
+  detectHeat(weather.hourly.temperature_2m);
 
   // AQI
-  const aqiData = await fetchJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi`, {
-    hourly: {us_aqi:[50]}
-  });
-  aqi.innerText = aqiData.hourly.us_aqi[0];
+  const aqiData=await fetchJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi`,{hourly:{us_aqi:Array(24).fill(50),time:Array(24).fill(new Date().toISOString())}});
+  aqi.innerText=aqiData.hourly.us_aqi[0];
+  renderAQIChart(aqiData.hourly);
 }
+
+function renderHourly(h){hourly.innerHTML="";h.temperature_2m.slice(0,24).forEach((t,i)=>{hourly.innerHTML+=`<div class="hour"><span>${new Date(h.time[i]).getHours()}:00</span><span>${t}°C</span></div>`;});renderTempChart(h);}
+
+function renderSummary(h){
+  const t=h.temperature_2m.slice(0,24);
+  summary.innerHTML=`Min: ${Math.min(...t)}°C | Max: ${Math.max(...t)}°C | Avg: ${(t.reduce((a,b)=>a+b,0)/24).toFixed(1)}°C`;
+}
+
+function detectHeat(t){
+  const m=Math.max(...t);
+  alertsText.innerHTML=m>=45?"🚨 Severe Heatwave":m>=42?"🔥 Heatwave":m>=38?"⚠️ Heat Alert":"Normal 🌤️";
+}
+
+function renderRain(h){
+  rain.innerText=h.precipitation[0]+" mm / "+h.precipitation_probability[0]+"%";
+  const labels=h.time.slice(0,24).map(t=>new Date(t).getHours());
+  const data={labels,datasets:[{label:'Rain mm',data:h.precipitation.slice(0,24),backgroundColor:'rgba(54,162,235,0.7)'}]};
+  if(rainChart)rainChart.destroy();
+  rainChart=new Chart(document.getElementById('rainChart'),{type:'bar',data,options:{responsive:true,scales:{y:{beginAtZero:true}}}});
+}
+
+function renderTempChart(h){
+  const labels=h.time.slice(0,24).map(t=>new Date(t).getHours());
+  const data={labels,datasets:[{label:'Temp °C',data:h.temperature_2m.slice(0,24),borderColor:'rgba(255,206,86,0.8)',backgroundColor:'rgba(255,206,86,0.2)'}]};
+  if(tempChart)tempChart.destroy();
+  tempChart=new Chart(document.getElementById('aqiChart'),{type:'line',data,options:{responsive:true,scales:{y:{beginAtZero:false}}}});
+}
+
+function renderAQIChart(h){
+  const labels=h.time.slice(0,24).map(t=>new Date(t).getHours());
+  const data={labels,datasets:[{label:'AQI',data:h.us_aqi.slice(0,24),borderColor:'rgba(255,99,132,0.8)',backgroundColor:'rgba(255,99,132,0.2)'}]};
+  if(aqiChart)aqiChart.destroy();
+  aqiChart=new Chart(document.getElementById('aqiChart'),{type:'line',data,options:{responsive:true,scales:{y:{beginAtZero:true}}}});
+}
+
+// Retry buttons
+function retryRain(){if(place.innerText!=="Ready")loadWeather(28.6139,77.209,place.innerText);}
+function retryAQI(){if(place.innerText!=="Ready")loadWeather(28.6139,77.209,place.innerText);}
+function retryWeather(){if(place.innerText!=="Ready")loadWeather(28.6139,77.209,place.innerText);}
 
 // Initial load
 loadWeather(28.6139,77.209,"Delhi");
