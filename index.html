@@ -6,18 +6,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-:root{
-  --bg:#000;
-  --card:rgba(255,255,255,0.07);
-  --text:#fff;
-  --accent:0.08;
-}
-
 body{
   margin:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI;
+  background:#000;
+  color:#fff;
+  font-family:system-ui;
   display:flex;
   justify-content:center;
 }
@@ -26,11 +19,10 @@ body{
   width:100%;
   max-width:420px;
   padding:16px;
-  position:relative;
 }
 
 .card{
-  background:rgba(255,255,255,var(--accent));
+  background:rgba(255,255,255,0.08);
   backdrop-filter:blur(18px);
   border-radius:22px;
   padding:18px;
@@ -38,9 +30,8 @@ body{
 }
 
 .temp{
-  font-size:4.4rem;
+  font-size:4.8rem;
   font-weight:800;
-  letter-spacing:-1px;
 }
 
 .place{
@@ -54,17 +45,11 @@ h3{
 }
 
 .item{
-  background:rgba(0,0,0,0.35);
+  background:rgba(0,0,0,.35);
   padding:14px;
   border-radius:14px;
   margin-bottom:8px;
   font-size:1.25rem;
-}
-
-.grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
 }
 
 input,button{
@@ -77,26 +62,8 @@ input,button{
 
 button{margin-top:10px}
 
-.toggle{
-  position:absolute;
-  top:16px;
-  right:16px;
-  width:44px;
-  height:44px;
-  border-radius:50%;
-  border:none;
-  font-size:20px;
-  background:#111;
-  color:#fff;
-}
-
-.slider{
-  width:100%;
-}
-
 .footer{
   text-align:center;
-  font-size:1.05rem;
   opacity:.7;
 }
 </style>
@@ -104,8 +71,6 @@ button{margin-top:10px}
 
 <body>
 <div class="app">
-
-<button class="toggle" onclick="toggleMode()">🌙</button>
 
 <div class="card">
   <input id="city" placeholder="Enter city">
@@ -118,33 +83,22 @@ button{margin-top:10px}
 </div>
 
 <div class="card">
-  <h3>🎨 Hue Intensity</h3>
-  <input class="slider" type="range" min="4" max="14" value="8" oninput="setHue(this.value)">
-</div>
-
-<div class="card">
   <h3>📍 Location Conditions</h3>
   <div id="conditions"></div>
 </div>
 
 <div class="card">
-  <h3>🌡️ Hourly Temperature (24h)</h3>
+  <h3>⏱️ Hourly (Next 24h)</h3>
   <div id="hourly"></div>
-  <div id="hourMinMax" class="item"></div>
 </div>
 
 <div class="card">
-  <h3>📅 7-Day Temperature</h3>
-  <div class="grid" id="week"></div>
+  <h3>📆 7-Day Forecast</h3>
+  <div id="daily"></div>
 </div>
 
 <div class="card">
-  <h3>🌧️ Rain & Precipitation</h3>
-  <div id="rain"></div>
-</div>
-
-<div class="card">
-  <h3>🌫️ Air Quality (AQI)</h3>
+  <h3>🌫️ AQI Details</h3>
   <div id="aqi"></div>
 </div>
 
@@ -155,17 +109,6 @@ button{margin-top:10px}
 </div>
 
 <script>
-function toggleMode(){
-  document.body.style.background =
-    document.body.style.background==="#000" ? "#050505" : "#000";
-}
-
-function setHue(v){
-  document.documentElement.style.setProperty("--accent", v/100);
-}
-
-/* ===== WORKING LOGIC (UNCHANGED) ===== */
-
 async function getJSON(url){
   try{
     const r=await fetch(url);
@@ -185,88 +128,66 @@ async function search(){
   );
   if(!geo || !geo.results) return;
 
-  const l=geo.results[0];
-  load(l.latitude,l.longitude,l.name);
+  const g=geo.results[0];
+  load(g.latitude,g.longitude,g.name);
 }
 
 async function load(lat,lon,name){
   place.textContent=name;
 
-  const url=
+  const w=await getJSON(
     "https://api.open-meteo.com/v1/forecast"
     +"?latitude="+lat
     +"&longitude="+lon
     +"&current_weather=true"
-    +"&hourly=temperature_2m,relative_humidity_2m,pressure_msl,windspeed_10m,precipitation"
-    +"&daily=temperature_2m_min,temperature_2m_max"
-    +"&timezone=auto";
-
-  const w=await getJSON(url);
-  if(!w || !w.current_weather){
-    temp.textContent="--°C";
-    return;
-  }
+    +"&hourly=temperature_2m,precipitation,windspeed_10m,relative_humidity_2m"
+    +"&daily=temperature_2m_max,temperature_2m_min"
+    +"&timezone=auto"
+  );
+  if(!w) return;
 
   temp.textContent=w.current_weather.temperature+"°C";
 
   conditions.innerHTML=`
     <div class="item">Humidity: ${w.hourly.relative_humidity_2m[0]}%</div>
-    <div class="item">Pressure: ${w.hourly.pressure_msl[0]} hPa</div>
     <div class="item">Wind: ${w.current_weather.windspeed} km/h</div>
-    <div class="item">Latitude: ${lat.toFixed(2)}</div>
-    <div class="item">Longitude: ${lon.toFixed(2)}</div>
+    <div class="item">Precipitation: ${w.hourly.precipitation[0]} mm</div>
     <div class="item">Timezone: ${w.timezone}</div>
-    <div class="item">Elevation: ${w.elevation} m</div>
-    <div class="item">Rain: ${w.hourly.precipitation[0]} mm</div>
-    <div class="item">Day Max: ${w.daily.temperature_2m_max[0]}°C</div>
-    <div class="item">Day Min: ${w.daily.temperature_2m_min[0]}°C</div>
   `;
 
   hourly.innerHTML="";
-  let min=999,max=-999;
   for(let i=0;i<24;i++){
-    const t=w.hourly.temperature_2m[i];
-    min=Math.min(min,t); max=Math.max(max,t);
-    hourly.innerHTML+=`<div class="item">Hour ${i}: ${t}°C</div>`;
-  }
-  hourMinMax.textContent=`24h Min: ${min}°C | Max: ${max}°C`;
-
-  week.innerHTML="";
-  for(let i=0;i<7;i++){
-    week.innerHTML+=`
+    hourly.innerHTML+=`
       <div class="item">
-        Day ${i+1}<br>${w.daily.temperature_2m_min[i]}° / ${w.daily.temperature_2m_max[i]}°
+        Hour ${i+1}: ${w.hourly.temperature_2m[i]}°C | Wind ${w.hourly.windspeed_10m[i]} km/h | Rain ${w.hourly.precipitation[i]} mm
       </div>`;
   }
 
-  rain.innerHTML=`
-    <div class="item">Rain now: ${w.hourly.precipitation[0]} mm</div>
-    <div class="item">Wind speed: ${w.current_weather.windspeed} km/h</div>
-  `;
+  daily.innerHTML="";
+  for(let i=0;i<7;i++){
+    daily.innerHTML+=`
+      <div class="item">
+        Day ${i+1}: Min ${w.daily.temperature_2m_min[i]}°C / Max ${w.daily.temperature_2m_max[i]}°C
+      </div>`;
+  }
 
   const aq=await getJSON(
     "https://air-quality-api.open-meteo.com/v1/air-quality"
     +"?latitude="+lat
     +"&longitude="+lon
-    +"&hourly=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,ammonia"
+    +"&hourly=us_aqi,pm2_5,pm10,ozone,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide"
   );
 
-  if(aq && aq.hourly){
-    const v=aq.hourly;
+  if(aq){
     aqi.innerHTML=`
-      <div class="item">AQI: ${v.us_aqi[0]}</div>
-      <div class="item">PM2.5: ${v.pm2_5[0]}</div>
-      <div class="item">PM10: ${v.pm10[0]}</div>
-      <div class="item">O₃: ${v.ozone[0]}</div>
-      <div class="item">NO₂: ${v.nitrogen_dioxide[0]}</div>
-      <div class="item">SO₂: ${v.sulphur_dioxide[0]}</div>
-      <div class="item">CO: ${v.carbon_monoxide[0]}</div>
-      <div class="item">NH₃: ${v.ammonia[0]}</div>
-      <div class="item">Category: ${v.us_aqi[0]<50?"Good":"Moderate+"}</div>
-      <div class="item">Health: Sensitive groups care</div>
+      <div class="item">AQI: ${aq.hourly.us_aqi[0]}</div>
+      <div class="item">PM2.5: ${aq.hourly.pm2_5[0]} µg/m³</div>
+      <div class="item">PM10: ${aq.hourly.pm10[0]} µg/m³</div>
+      <div class="item">Ozone: ${aq.hourly.ozone[0]} µg/m³</div>
+      <div class="item">CO: ${aq.hourly.carbon_monoxide[0]} µg/m³</div>
+      <div class="item">NO₂: ${aq.hourly.nitrogen_dioxide[0]} µg/m³</div>
+      <div class="item">SO₂: ${aq.hourly.sulphur_dioxide[0]} µg/m³</div>
     `;
-  }else{
-    aqi.innerHTML="<div class='item'>AQI unavailable</div>";
   }
 }
 
