@@ -20,7 +20,7 @@ h2{font-size:1.25rem;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom
 .sub{font-size:1.2rem;text-align:center;margin-bottom:6px}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .toggle{background:#111;color:#fff;border:none;border-radius:12px;padding:8px;cursor:pointer}
-.alert{padding:10px;border-radius:12px;font-size:.95rem}
+.alert{padding:10px;border-radius:12px;font-size:.95rem;margin-top:6px}
 .hourly{display:flex;gap:10px;overflow-x:auto;margin-top:8px}
 .hour{min-width:78px;text-align:center;background:rgba(255,255,255,.1);padding:10px;border-radius:12px;font-size:.85rem}
 input,button{height:46px;border-radius:14px;border:none;font-size:1.05rem}
@@ -86,7 +86,7 @@ button{width:28%;background:#222;color:#fff}
 
 <div class="card">
 <h2>Next 24 Hours</h2>
-<div id="hourly" class="list"></div>
+<div id="hourly" class="hourly"></div>
 </div>
 
 <div class="card">
@@ -141,7 +141,7 @@ async function getCoords(city){
 
 async function getWeather(lat,lon){
   const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
-  `&current_weather=true&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,cloudcover,precipitation,uv_index,dew_point_2m,visibility,windspeed_10m,winddirection_10m`+
+  `&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,cloudcover,precipitation,uv_index,dew_point_2m,visibility,windspeed_10m,winddirection_10m`+
   `&daily=temperature_2m_min,temperature_2m_max,sunrise,sunset,time&timezone=auto`;
   const res=await fetch(url);
   return res.json();
@@ -149,7 +149,7 @@ async function getWeather(lat,lon){
 
 async function getAQI(lat,lon){
   const url=`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}`+
-  `&current=pm2_5,pm10,ozone,nitrogen_dioxide&hourly=pm2_5,pm10,ozone,nitrogen_dioxide&timezone=auto`;
+  `&hourly=pm2_5,pm10,ozone,nitrogen_dioxide&timezone=auto`;
   const res=await fetch(url);
   return res.json();
 }
@@ -162,28 +162,28 @@ async function loadWeather(cityInput){
     document.getElementById("cityName").textContent=lastCity;
 
     const weather=await getWeather(lastLat,lastLon);
-    const cur=weather.current_weather;
+    const curHourIndex=0;
 
-    document.getElementById("temp").textContent=Math.round(cur.temperature)+"°C";
-    document.getElementById("feel").textContent="Feels like "+Math.round(cur.apparent_temperature)+"°C";
+    document.getElementById("temp").textContent=Math.round(weather.hourly.temperature_2m[curHourIndex])+"°C";
+    document.getElementById("feel").textContent="Feels like "+Math.round(weather.hourly.apparent_temperature[curHourIndex])+"°C";
 
-    document.getElementById("humidity").textContent=weather.hourly.relative_humidity_2m[0]+"%";
-    document.getElementById("pressure").textContent=weather.hourly.pressure_msl[0]+" hPa";
-    document.getElementById("wind").textContent=weather.hourly.windspeed_10m[0]+" km/h";
-    document.getElementById("windDir").textContent=weather.hourly.winddirection_10m[0]+"°";
-    document.getElementById("precip").textContent=weather.hourly.precipitation[0]+" mm";
-    document.getElementById("cloud").textContent=weather.hourly.cloudcover[0]+"%";
-    document.getElementById("vis").textContent=(weather.hourly.visibility[0]/1000).toFixed(1)+" km";
-    document.getElementById("uv").textContent=weather.hourly.uv_index[0];
-    document.getElementById("dew").textContent=weather.hourly.dew_point_2m[0]+"°C";
+    document.getElementById("humidity").textContent=weather.hourly.relative_humidity_2m[curHourIndex]+"%";
+    document.getElementById("pressure").textContent=weather.hourly.pressure_msl[curHourIndex]+" hPa";
+    document.getElementById("wind").textContent=weather.hourly.windspeed_10m[curHourIndex]+" km/h";
+    document.getElementById("windDir").textContent=weather.hourly.winddirection_10m[curHourIndex]+"°";
+    document.getElementById("precip").textContent=weather.hourly.precipitation[curHourIndex]+" mm";
+    document.getElementById("cloud").textContent=weather.hourly.cloudcover[curHourIndex]+"%";
+    document.getElementById("vis").textContent=(weather.hourly.visibility[curHourIndex]/1000).toFixed(1)+" km";
+    document.getElementById("uv").textContent=weather.hourly.uv_index[curHourIndex];
+    document.getElementById("dew").textContent=weather.hourly.dew_point_2m[curHourIndex]+"°C";
     document.getElementById("sunrise").textContent=formatTime(weather.daily.sunrise[0]);
     document.getElementById("sunset").textContent=formatTime(weather.daily.sunset[0]);
 
     const air=await getAQI(lastLat,lastLon);
-    const pm25=air.current?.pm2_5 ?? air.hourly.pm2_5[0];
-    const pm10=air.current?.pm10 ?? air.hourly.pm10[0];
-    const o3=air.current?.ozone ?? air.hourly.ozone[0];
-    const no2=air.current?.nitrogen_dioxide ?? air.hourly.nitrogen_dioxide[0];
+    const pm25=air.hourly.pm2_5[curHourIndex];
+    const pm10=air.hourly.pm10[curHourIndex];
+    const o3=air.hourly.ozone[curHourIndex];
+    const no2=air.hourly.nitrogen_dioxide[curHourIndex];
 
     document.getElementById("pm25").textContent=pm25.toFixed(1);
     document.getElementById("pm10").textContent=pm10.toFixed(1);
@@ -210,15 +210,15 @@ async function loadWeather(cityInput){
 
     const h=document.getElementById("hourly");
     h.innerHTML="";
-    weather.hourly.temperature_2m.slice(0,24).forEach((t,i)=>{
-      h.innerHTML+=`<div class="row"><span>${i}:00</span><span>${t}°C</span></div>`;
-    });
+    for(let i=0;i<24;i++){
+      h.innerHTML+=`<div class="hour"><div>${i}:00</div><div>${weather.hourly.temperature_2m[i]}°C</div></div>`;
+    }
 
     const d=document.getElementById("daily");
     d.innerHTML="";
-    weather.daily.time.forEach((date,i)=>{
-      d.innerHTML+=`<div class="row"><span>${date}</span><span>${weather.daily.temperature_2m_min[i]}° / ${weather.daily.temperature_2m_max[i]}°</span></div>`;
-    });
+    for(let i=0;i<weather.daily.time.length;i++){
+      d.innerHTML+=`<div class="row"><span>${weather.daily.time[i]}</span><span>${weather.daily.temperature_2m_min[i]}° / ${weather.daily.temperature_2m_max[i]}°</span></div>`;
+    }
 
     const alertEl=document.getElementById("healthAlert");
     if(AQIval<=50) alertEl.textContent="Air quality is good. Safe for all outdoor activities."; 
@@ -229,12 +229,15 @@ async function loadWeather(cityInput){
   } catch(e){console.error(e);}
 }
 
+// Auto-refresh every 10 minutes
 setInterval(()=>loadWeather(DEFAULT_CITY),10*60*1000);
 
+// Initial load
 if("geolocation" in navigator){
   navigator.geolocation.getCurrentPosition(()=>loadWeather(null),()=>loadWeather(DEFAULT_CITY));
 }else loadWeather(DEFAULT_CITY);
 
+// Service Worker for PWA offline caching
 if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(console.error);}
 </script>
 </body>
