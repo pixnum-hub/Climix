@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Climix</title>
+<title>Weathia</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#000000">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -12,7 +12,10 @@
 body{background:#000;color:#fff;display:flex;justify-content:center;transition:background 0.3s,color 0.3s}
 body.oled{background:#000;color:#fff}
 :root{--aqi-tint:rgba(0,0,0,0)}
-.app{max-width:420px;width:100%;padding:16px;background:linear-gradient(180deg,var(--aqi-tint),#000);transition:background 0.3s}
+.app{
+  max-width:420px;width:100%;padding:16px;background:#000;transition:background 0.3s,box-shadow 0.3s;
+}
+.app.aqi{box-shadow: inset 0 0 50px var(--aqi-tint);}
 .card{background:rgba(255,255,255,.08);backdrop-filter:blur(14px);border-radius:18px;padding:16px;margin-bottom:14px}
 h2{font-size:1.25rem;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:6px;margin-bottom:10px}
 .big{font-size:2.5rem;text-align:center;font-weight:800}
@@ -35,35 +38,35 @@ button{width:28%;background:#222;color:#fff}
 <div class="app">
 
 <header style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-<h1>Climix</h1>
-<button class="toggle" onclick="toggleDark()">🌙 OLED</button>
+  <h1>Weathia</h1>
+  <button class="toggle" onclick="toggleDark()">🌙 OLED</button>
 </header>
 
 <div class="card">
-<input id="city" placeholder="Enter city">
-<button onclick="loadWeather(document.getElementById('city').value.trim())">Search</button>
+  <input id="city" placeholder="Enter city">
+  <button onclick="loadWeather(document.getElementById('city').value.trim())">Search</button>
 </div>
 
 <div class="card">
-<div id="cityName" class="sub">Kolkata, India</div>
-<div id="temp" class="big">--°C</div>
-<div id="feel" class="sub">Feels like --°C</div>
+  <div id="cityName" class="sub">Kolkata, India</div>
+  <div id="temp" class="big">--°C</div>
+  <div id="feel" class="sub">Feels like --°C</div>
 </div>
 
 <div class="card">
 <h2>Location Conditions</h2>
 <div class="grid">
-<div>Humidity <span id="humidity">--</span></div>
-<div>Pressure <span id="pressure">--</span></div>
-<div>Wind <span id="wind">--</span></div>
-<div>Direction <span id="windDir">--</span></div>
-<div>Precip <span id="precip">--</span></div>
-<div>Cloud <span id="cloud">--</span></div>
-<div>Visibility <span id="vis">--</span></div>
-<div>UV <span id="uv">--</span></div>
-<div>Dew <span id="dew">--</span></div>
-<div>Sunrise <span id="sunrise">--</span></div>
-<div>Sunset <span id="sunset">--</span></div>
+  <div>Humidity <span id="humidity">--</span></div>
+  <div>Pressure <span id="pressure">--</span></div>
+  <div>Wind <span id="wind">--</span></div>
+  <div>Direction <span id="windDir">--</span></div>
+  <div>Precip <span id="precip">--</span></div>
+  <div>Cloud <span id="cloud">--</span></div>
+  <div>Visibility <span id="vis">--</span></div>
+  <div>UV <span id="uv">--</span></div>
+  <div>Dew <span id="dew">--</span></div>
+  <div>Sunrise <span id="sunrise">--</span></div>
+  <div>Sunset <span id="sunset">--</span></div>
 </div>
 </div>
 
@@ -73,16 +76,16 @@ button{width:28%;background:#222;color:#fff}
 <div id="aqiCategory" style="text-align:center">--</div>
 <div id="aqiHealth" style="text-align:center;margin-bottom:10px">--</div>
 <div class="grid">
-<div>PM2.5 <span id="pm25">--</span></div>
-<div>PM10 <span id="pm10">--</span></div>
-<div>O₃ <span id="o3">--</span></div>
-<div>NO₂ <span id="no2">--</span></div>
-<div>Dominant <span id="dominant">--</span></div>
+  <div>PM2.5 <span id="pm25">--</span></div>
+  <div>PM10 <span id="pm10">--</span></div>
+  <div>O₃ <span id="o3">--</span></div>
+  <div>NO₂ <span id="no2">--</span></div>
+  <div>Dominant <span id="dominant">--</span></div>
 </div>
 </div>
 
 <div class="card">
-<h2>Pollutant Breakdown (72h)</h2>
+<h2>Pollutant Breakdown (24h)</h2>
 <canvas id="pollChart" height="180"></canvas>
 <div class="hourly" id="pollHours"></div>
 </div>
@@ -114,48 +117,120 @@ let dark=true;let pollChart;
 
 function toggleDark(){
   dark=!dark;
+  const app=document.querySelector(".app");
   if(dark){
     document.body.classList.add("oled");
-    document.querySelector(".app").style.background="#000";
+    app.style.background="#000";
+    app.style.boxShadow="";
     document.querySelector(".toggle").textContent="🌙 OLED";
   } else {
     document.body.classList.remove("oled");
-    document.querySelector(".app").style.background="linear-gradient(180deg,var(--aqi-tint),#000)";
+    app.style.background="#111";
     document.querySelector(".toggle").textContent="☀️";
   }
 }
 
-const BP={
- pm25:[[0,12,0,50],[12.1,35.4,51,100],[35.5,55.4,101,150],[55.5,150.4,151,200],[150.5,250.4,201,300],[250.5,500,301,500]],
- pm10:[[0,54,0,50],[55,154,51,100],[155,254,101,150],[255,354,151,200],[355,424,201,300],[425,604,301,500]],
- o3:[[0,54,0,50],[55,70,51,100],[71,85,101,150],[86,105,151,200],[106,200,201,300],[201,604,301,500]],
- no2:[[0,53,0,50],[54,100,51,100],[101,360,101,150],[361,649,151,200],[650,1249,201,300],[1250,2049,301,500]]
-};
-function scalePollutant(value,pollutant){
- const table=BP[pollutant];if(!table||value==null) return 0;
- for(const b of table){if(value>=b[0]&&value<=b[1]) return Math.round(((b[3]-b[2])/(b[1]-b[0]))*(value-b[0])+b[2]);}
- return 500;
-}
-function aqiCategory(aqi){
- if(aqi<=50)return"Good";
- if(aqi<=100)return"Moderate";
- if(aqi<=150)return"Unhealthy (Sensitive)";
- if(aqi<=200)return"Unhealthy";
- if(aqi<=300)return"Very Unhealthy";
- return"Hazardous";
-}
 function applyAQITint(aqi){
- let t="rgba(0,0,0,0)";
- if(aqi<=50)t="rgba(0,180,90,.12)";
- else if(aqi<=100)t="rgba(255,200,0,.14)";
- else if(aqi<=150)t="rgba(255,140,0,.16)";
- else if(aqi<=200)t="rgba(255,80,80,.18)";
- else t="rgba(180,0,0,.22)";
- if(!dark) t="linear-gradient(180deg,"+t+",#000)";
- document.documentElement.style.setProperty("--aqi-tint",t);
+  let t="rgba(0,0,0,0)";
+  if(aqi<=50) t="rgba(0,100,255,0.08)";
+  else if(aqi<=100) t="rgba(0,200,90,0.12)";
+  else if(aqi<=150) t="rgba(255,140,0,0.14)";
+  else if(aqi<=200) t="rgba(255,80,80,0.16)";
+  else t="rgba(180,0,0,0.2)";
+  document.documentElement.style.setProperty("--aqi-tint",t);
+  document.querySelector(".app").classList.add("aqi");
 }
 
-// ... (the rest of the previous JS functions remain the same, including getCoords, getWeather, getAQI, loadWeather, updatePollutantChart)
+function formatTime(dateStr){
+  const d=new Date(dateStr);
+  return d.getHours().toString().padStart(2,"0")+":"+d.getMinutes().toString().padStart(2,"0");
+}
+
+async function getCoords(city){
+  const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
+  const j=await r.json();
+  return j.results?.[0] ?? {latitude:lastLat,longitude:lastLon,name:lastCity.split(",")[0],country:"India"};
+}
+
+async function getWeather(lat,lon){
+  const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `&current_weather=true&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,cloudcover,precipitation,uv_index,dew_point_2m,visibility,windspeed_10m,winddirection_10m` +
+    `&daily=temperature_2m_min,temperature_2m_max,sunrise,sunset&timezone=auto`;
+  const res=await fetch(url);
+  return res.json();
+}
+
+async function getAQI(lat,lon){
+  const url=`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}` +
+    `&current=pm2_5,pm10,ozone,nitrogen_dioxide&hourly=pm2_5,pm10,ozone,nitrogen_dioxide&timezone=auto`;
+  const res=await fetch(url);
+  return res.json();
+}
+
+async function loadWeather(cityInput){
+  const loc=await getCoords(cityInput);
+  lastLat=loc.latitude; lastLon=loc.longitude;
+  lastCity=loc.name+(loc.country?`, ${loc.country}`:"");
+  document.getElementById("cityName").textContent=lastCity;
+
+  const weather=await getWeather(lastLat,lastLon);
+  const cur=weather.current_weather;
+
+  document.getElementById("temp").textContent=Math.round(cur.temperature)+"°C";
+  document.getElementById("feel").textContent="Feels like "+Math.round(cur.apparent_temperature)+"°C";
+
+  document.getElementById("humidity").textContent=weather.hourly.relative_humidity_2m[0]+"%";
+  document.getElementById("pressure").textContent=weather.hourly.pressure_msl[0]+" hPa";
+  document.getElementById("wind").textContent=weather.hourly.windspeed_10m[0]+" km/h";
+  document.getElementById("windDir").textContent=weather.hourly.winddirection_10m[0]+"°";
+  document.getElementById("precip").textContent=weather.hourly.precipitation[0]+" mm";
+  document.getElementById("cloud").textContent=weather.hourly.cloudcover[0]+"%";
+  document.getElementById("vis").textContent=(weather.hourly.visibility[0]/1000).toFixed(1)+" km";
+  document.getElementById("uv").textContent=weather.hourly.uv_index[0];
+  document.getElementById("dew").textContent=weather.hourly.dew_point_2m[0]+"°C";
+  document.getElementById("sunrise").textContent=formatTime(weather.daily.sunrise[0]);
+  document.getElementById("sunset").textContent=formatTime(weather.daily.sunset[0]);
+
+  const air=await getAQI(lastLat,lastLon);
+  const pm25=air.current?.pm2_5 ?? air.hourly.pm2_5[0];
+  const pm10=air.current?.pm10 ?? air.hourly.pm10[0];
+  const o3=air.current?.ozone ?? air.hourly.ozone[0];
+  const no2=air.current?.nitrogen_dioxide ?? air.hourly.nitrogen_dioxide[0];
+
+  document.getElementById("pm25").textContent=pm25.toFixed(1);
+  document.getElementById("pm10").textContent=pm10.toFixed(1);
+  document.getElementById("o3").textContent=o3.toFixed(1);
+  document.getElementById("no2").textContent=no2.toFixed(1);
+
+  const subAQI={"PM2.5":pm25,"PM10":pm10,"O₃":o3,"NO₂":no2};
+  const domPoll=Object.keys(subAQI).reduce((a,b)=>subAQI[a]>subAQI[b]?a:b);
+  document.getElementById("dominant").textContent=domPoll;
+  const AQIval=Math.max(...Object.values(subAQI));
+  document.getElementById("aqiValue").textContent="AQI "+Math.round(AQIval);
+  document.getElementById("aqiCategory").textContent=AQIval<=50?"Good":AQIval<=100?"Moderate":AQIval<=150?"Unhealthy (Sensitive)":AQIval<=200?"Unhealthy":"Very Unhealthy";
+  document.getElementById("aqiHealth").textContent=AQIval<=100?"Normal outdoor activity":"Limit prolonged exposure";
+
+  applyAQITint(AQIval);
+
+  // Pollutant chart
+  const ctx=document.getElementById("pollChart").getContext("2d");
+  if(pollChart) pollChart.destroy();
+  pollChart=new Chart(ctx,{type:'bar',
+    data:{labels:Object.keys(subAQI),datasets:[{label:'Concentration',data:Object.values(subAQI),backgroundColor:['#00f','#0a0','#f80','#f00']}]},
+    options:{responsive:true,plugins:{legend:{display:false}}}
+  });
+}
+
+// Auto-location and auto-refresh
+if("geolocation" in navigator){
+  navigator.geolocation.getCurrentPosition(()=>loadWeather(null),()=>loadWeather(null));
+}else{
+  loadWeather(null);
+}
+setInterval(()=>loadWeather(null),10*60*1000);
+
+// Service Worker
+if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(console.error);}
 </script>
 </body>
 </html>
