@@ -1,206 +1,219 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Climix</title>
+
 <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
+
 <style>
-*{box-sizing:border-box;}
-body{margin:0;font-family:system-ui;display:flex;justify-content:center;background:#000;color:#fff;}
-.app{width:100%;max-width:420px;padding:16px;display:flex;flex-direction:column;align-items:center;position:relative;}
-.card{width:100%;background:rgba(255,255,255,0.08);backdrop-filter:blur(18px);border-radius:22px;padding:18px;margin-bottom:16px;text-align:center;}
-input,button{width:100%;padding:16px;font-size:1.25rem;border-radius:16px;border:none;}
-button{cursor:pointer;margin-top:6px;}
-.temp{font-size:4.8rem;font-weight:800;text-align:center;}
-.place{font-size:1.6rem;opacity:.9;text-align:center;}
-h3{font-size:1.5rem;margin:0 0 12px;text-align:center;}
-.item{width:100%;background:rgba(0,0,0,.35);padding:12px;border-radius:14px;margin-bottom:10px;font-size:1.2rem;text-align:center;}
-.toggle{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:50%;border:none;font-size:20px;background:#111;color:#fff;}
-.footer{text-align:center;opacity:.7;}
-.alert{background:#ff4444;color:#fff;font-weight:bold;padding:12px;border-radius:12px;margin-bottom:10px;}
-.hour-block{margin-bottom:12px;}
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system}
+body{
+  background:#000;
+  color:#fff;
+  display:flex;
+  justify-content:center;
+}
+:root{--aqi-tint:rgba(0,0,0,0)}
+.app-frame{
+  width:100%;
+  max-width:420px;
+  padding:16px;
+  background:linear-gradient(180deg,var(--aqi-tint),rgba(0,0,0,0.9));
+}
+header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:14px;
+}
+.toggle{
+  width:38px;height:38px;border-radius:50%;
+  border:none;background:#111;color:#fff;font-size:18px;
+}
+.card{
+  background:rgba(255,255,255,0.06);
+  backdrop-filter:blur(14px);
+  border-radius:18px;
+  padding:18px;
+  margin-bottom:14px;
+}
+.card h2{
+  font-size:1.45rem;
+  margin-bottom:10px;
+  border-bottom:1px solid rgba(255,255,255,0.12);
+  padding-bottom:6px;
+}
+.main-temp{
+  font-size:3.6rem;
+  font-weight:800;
+  text-align:center;
+}
+.sub-temp{text-align:center;font-size:1.5rem}
+input,button{
+  height:46px;
+  border-radius:14px;
+  border:none;
+  font-size:1.05rem;
+}
+input{width:70%;padding:0 10px}
+button{width:28%;background:#222;color:#fff}
+.grid-2{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+.list .row{
+  display:flex;
+  justify-content:space-between;
+  padding:8px 10px;
+  background:rgba(255,255,255,0.06);
+  border-radius:10px;
+  margin-bottom:6px;
+}
+.aqi-big{font-size:2.6rem;font-weight:800;text-align:center}
+span{font-weight:600}
 </style>
 </head>
-<body>
-<div class="app">
 
-<button class="toggle" onclick="toggleMode()">🌙</button>
+<body>
+<div class="app-frame">
+
+<header>
+  <h1>Climix</h1>
+  <button class="toggle" onclick="toggleDark()">🌙</button>
+</header>
 
 <div class="card">
   <input id="city" placeholder="Enter city">
-  <button onclick="search()">Search</button>
+  <button onclick="loadWeather()">Search</button>
 </div>
 
 <div class="card">
-  <div class="temp" id="temp">--°C</div>
-  <div class="place" id="place">Loading…</div>
-</div>
-
-<div class="card" id="alerts"></div>
-
-<div class="card">
-  <h3>📍 Location Conditions</h3>
-  <div id="conditions"></div>
+  <div id="temp" class="main-temp">--°C</div>
+  <div id="feel" class="sub-temp">Feels like --°C</div>
 </div>
 
 <div class="card">
-  <h3>⏱️ Hourly (Next 24h)</h3>
-  <div id="hourly"></div>
+<h2>Location Conditions</h2>
+<div class="grid-2">
+<div>Humidity <span id="humidity">--</span></div>
+<div>Pressure <span id="pressure">--</span></div>
+<div>Wind <span id="wind">--</span></div>
+<div>Direction <span id="windDir">--</span></div>
+<div>Precip <span id="precip">--</span></div>
+<div>Cloud <span id="cloud">--</span></div>
+<div>Visibility <span id="vis">--</span></div>
+<div>UV <span id="uv">--</span></div>
+<div>Dew <span id="dew">--</span></div>
+<div>Sunrise <span id="sunrise">--</span></div>
+</div>
 </div>
 
 <div class="card">
-  <h3>📆 7-Day Forecast</h3>
-  <div id="daily"></div>
+<h2>AQI Details</h2>
+<div class="aqi-big" id="aqiValue">AQI --</div>
+<div id="aqiCategory" style="text-align:center">--</div>
+<div id="aqiHealth" style="text-align:center;margin-bottom:10px">--</div>
+<div class="grid-2">
+<div>PM2.5 <span id="pm25">--</span></div>
+<div>PM10 <span id="pm10">--</span></div>
+<div>O₃ <span id="o3">--</span></div>
+<div>NO₂ <span id="no2">--</span></div>
+<div>SO₂ <span id="so2">--</span></div>
+<div>CO <span id="co">--</span></div>
+<div>NH₃ <span id="nh3">--</span></div>
+</div>
 </div>
 
 <div class="card">
-  <h3>🌅 Sun & Moon</h3>
-  <div id="sunmoon"></div>
+<h2>Next 24 Hours</h2>
+<div id="hourly" class="list"></div>
 </div>
 
 <div class="card">
-  <h3>🌫️ AQI Details</h3>
-  <div id="aqi"></div>
+<h2>7-Day Forecast</h2>
+<div id="daily" class="list"></div>
 </div>
 
-<div class="card footer">
-  © Manik Roy 2025. All Rights Reserved.
+<div class="card" style="text-align:center;font-size:0.9rem">
+© Manik Roy 2025. All Rights Reserved.
 </div>
 
 </div>
 
 <script>
-let dark=false;
-function toggleMode(){
-  dark=!dark;
-  document.body.style.background = dark?"#000":"#050505";
+function toggleDark(){
+  document.body.classList.toggle("oled");
 }
 
-/* ===== FETCH JSON ===== */
-async function getJSON(url){
-  try{const r=await fetch(url);if(!r.ok)throw 0;return await r.json();}
-  catch{return null;}
+function applyAQITint(aqi){
+  let t="rgba(0,0,0,0)";
+  if(aqi<=50)t="rgba(0,180,90,.12)";
+  else if(aqi<=100)t="rgba(255,200,0,.14)";
+  else if(aqi<=150)t="rgba(255,140,0,.16)";
+  else if(aqi<=200)t="rgba(255,80,80,.18)";
+  else t="rgba(180,0,0,.22)";
+  document.documentElement.style.setProperty("--aqi-tint",t);
 }
 
-async function search(){
-  const name=document.getElementById("city").value.trim();
-  if(!name)return;
-  const geo=await getJSON("https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(name)+"&count=1");
-  if(!geo||!geo.results)return;
-  const g=geo.results[0];
-  load(g.latitude,g.longitude,g.name);
-}
+async function loadWeather(){
+  const c=document.getElementById("city").value.trim();
+  if(!c)return;
 
-async function load(lat,lon,name){
-  document.getElementById("place").textContent=name;
+  const w=await fetch(`https://wttr.in/${c}?format=j1`).then(r=>r.json());
 
-  const w=await getJSON(
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,precipitation,windspeed_10m,relative_humidity_2m,cloudcover,uv_index,visibility,dewpoint_2m&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto`
-  );
-  if(!w)return;
+  const cur=w.current_condition[0];
+  document.getElementById("temp").textContent=cur.temp_C+"°C";
+  document.getElementById("feel").textContent="Feels like "+cur.FeelsLikeC+"°C";
+  document.getElementById("humidity").textContent=cur.humidity+"%";
+  document.getElementById("pressure").textContent=cur.pressure+" mb";
+  document.getElementById("wind").textContent=cur.windspeedKmph+" km/h";
+  document.getElementById("windDir").textContent=cur.winddir16Point;
+  document.getElementById("precip").textContent=cur.precipMM+" mm";
+  document.getElementById("cloud").textContent=cur.cloudcover+"%";
+  document.getElementById("vis").textContent=cur.visibility+" km";
+  document.getElementById("uv").textContent=cur.uvIndex;
+  document.getElementById("dew").textContent=cur.DewPointC+"°C";
+  document.getElementById("sunrise").textContent=w.weather[0].astronomy[0].sunrise;
 
-  document.getElementById("temp").textContent=w.current_weather.temperature+"°C";
+  // AQI (approx from PM2.5)
+  const pm25=cur.pm2_5||20;
+  const aqi=Math.round(pm25*2);
+  document.getElementById("aqiValue").textContent="AQI "+aqi;
+  document.getElementById("aqiCategory").textContent=aqi<=50?"Good":aqi<=100?"Moderate":"Poor";
+  document.getElementById("aqiHealth").textContent=aqi<=100?"Normal outdoor activity":"Limit prolonged exposure";
+  document.getElementById("pm25").textContent=pm25;
+  document.getElementById("pm10").textContent=cur.pm10||"--";
+  document.getElementById("o3").textContent=cur.o3||"--";
+  document.getElementById("no2").textContent=cur.no2||"--";
+  document.getElementById("so2").textContent=cur.so2||"--";
+  document.getElementById("co").textContent=cur.co||"--";
+  document.getElementById("nh3").textContent=cur.nh3||"--";
+  applyAQITint(aqi);
 
-  /* ===== ALERTS ===== */
-  const alerts=document.getElementById("alerts");
-  alerts.innerHTML="";
-  if(w.current_weather.temperature>=40)alerts.innerHTML+='<div class="alert">⚠️ Heatwave Alert!</div>';
-  if(w.hourly.precipitation[0]>=20)alerts.innerHTML+='<div class="alert">⚠️ Heavy Rain Alert!</div>';
+  // Hourly
+  const h=document.getElementById("hourly");
+  h.innerHTML="";
+  w.weather[0].hourly.slice(0,24).forEach(x=>{
+    h.innerHTML+=`<div class="row"><span>${x.time/100}:00</span><span>${x.tempC}°C</span></div>`;
+  });
 
-  /* ===== LOCATION CONDITIONS (10) ===== */
-  const c=w.hourly;
-  document.getElementById("conditions").innerHTML=`
-    <div class="item">Temperature: ${w.current_weather.temperature}°C</div>
-    <div class="item">Humidity: ${c.relative_humidity_2m[0]}%</div>
-    <div class="item">Wind: ${w.current_weather.windspeed} km/h</div>
-    <div class="item">Precipitation: ${c.precipitation[0]} mm</div>
-    <div class="item">Pressure: ${c.pressure_msl?c.pressure_msl[0]:'N/A'} hPa</div>
-    <div class="item">Cloud Cover: ${c.cloudcover?c.cloudcover[0]:'N/A'}%</div>
-    <div class="item">UV Index: ${c.uv_index?c.uv_index[0]:'N/A'}</div>
-    <div class="item">Visibility: ${c.visibility?c.visibility[0]:'N/A'} km</div>
-    <div class="item">Dew Point: ${c.dewpoint_2m?c.dewpoint_2m[0]:'N/A'}°C</div>
-    <div class="item">Timezone: ${w.timezone}</div>
-  `;
-
-  /* ===== HOURLY 24H (split 4 blocks of 6h) ===== */
-  const hourlyEl=document.getElementById("hourly"); hourlyEl.innerHTML="";
-  for(let b=0;b<4;b++){
-    const block=document.createElement("div"); block.className="hour-block";
-    for(let i=b*6;i<(b+1)*6;i++){
-      block.innerHTML+=`<div class="item">Hour ${i+1}: ${c.temperature_2m[i]}°C | Wind ${c.windspeed_10m[i]} km/h | Rain ${c.precipitation[i]} mm</div>`;
-    }
-    hourlyEl.appendChild(block);
-  }
-
-  /* ===== 7-DAY FORECAST with dates ===== */
-  const dailyEl=document.getElementById("daily"); dailyEl.innerHTML="";
-  const today=new Date();
-  for(let i=0;i<7;i++){
-    const d=new Date(today); d.setDate(today.getDate()+i);
-    const dateStr=d.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'});
-    dailyEl.innerHTML+=`<div class="item">${dateStr}: Min ${w.daily.temperature_2m_min[i]}°C / Max ${w.daily.temperature_2m_max[i]}°C</div>`;
-  }
-
-  /* ===== SUN & MOON ===== */
-  document.getElementById("sunmoon").innerHTML=`
-    Sunrise: ${w.daily.sunrise[0]}<br>
-    Sunset: ${w.daily.sunset[0]}<br>
-    Moon Phase: ${getMoonPhase(new Date())}
-  `;
-
-  /* ===== AQI ===== */
-  const aq=await getJSON(
-    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi,pm2_5,pm10,ozone,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,nh3,voc`
-  );
-  if(aq){
-    const v=aq.hourly;
-    const health= v.us_aqi[0]>=150 ? "Unhealthy" : v.us_aqi[0]>=100 ? "Moderate" : "Good";
-    document.getElementById("aqi").innerHTML=`
-      <div class="item">AQI: ${v.us_aqi[0]} (${health})</div>
-      <div class="item">PM2.5: ${v.pm2_5[0]} µg/m³</div>
-      <div class="item">PM10: ${v.pm10[0]} µg/m³</div>
-      <div class="item">Ozone: ${v.ozone[0]} µg/m³</div>
-      <div class="item">CO: ${v.carbon_monoxide[0]} µg/m³</div>
-      <div class="item">NO₂: ${v.nitrogen_dioxide[0]} µg/m³</div>
-      <div class="item">SO₂: ${v.sulphur_dioxide[0]} µg/m³</div>
-      <div class="item">NH₃: ${v.nh3[0]} µg/m³</div>
-      <div class="item">VOC: ${v.voc[0]} µg/m³</div>
-    `;
-  }
-
-  /* ===== Adaptive Background based on AQI ===== */
-  if(aq && v.us_aqi[0]>=100) document.body.style.background="#220000";
-  else if(aq && v.us_aqi[0]>=50) document.body.style.background="#222200";
-  else document.body.style.background=dark?"#000":"#050505";
-}
-
-/* ===== MOON PHASE ===== */
-function getMoonPhase(date){
-  const lp = 2551443; const new_moon = new Date(1970,0,7,20,35,0).getTime()/1000;
-  const phase = ((date.getTime()/1000 - new_moon) % lp)/lp;
-  if(phase<0.02) return "New Moon";
-  if(phase<0.25) return "First Quarter";
-  if(phase<0.52) return "Full Moon";
-  if(phase<0.75) return "Last Quarter";
-  return "Waning Crescent";
-}
-
-/* ===== INITIAL LOAD ===== */
-load(28.61,77.20,"Delhi");
-
-/* ===== PWA SW ===== */
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg=>console.log("SW registered",reg))
-      .catch(err=>console.log("SW failed",err));
+  // Daily
+  const d=document.getElementById("daily");
+  d.innerHTML="";
+  w.weather.forEach(day=>{
+    d.innerHTML+=`<div class="row"><span>${day.date}</span><span>${day.mintempC}° / ${day.maxtempC}°</span></div>`;
   });
 }
-window.addEventListener('beforeinstallprompt',e=>{
-  e.preventDefault();
-  window.deferredPrompt=e;
-});
+
+// PWA
+if("serviceWorker"in navigator){
+  navigator.serviceWorker.register("sw.js");
+}
 </script>
+
 </body>
 </html>
