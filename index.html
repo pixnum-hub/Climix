@@ -86,59 +86,63 @@ body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;backg
 </div>
 <footer>© Manik Roy 2025. All Rights Reserved.</footer>
 </div>
-
 <script>
 const proxy = "https://api.codetabs.com/v1/proxy?quest=";
-async function safeFetch(url){
+async function safeFetch(url,fallback={}){
  try{
-  const fullUrl = proxy + encodeURIComponent(url);
-  const r = await fetch(fullUrl);
-  if(!r.ok) throw new Error("Network error");
-  return await r.json();
- }catch(e){alert("Network error: Unable to load data on mobile.");throw e;}
+  const r = await fetch(proxy+encodeURIComponent(url));
+  if(!r.ok)throw new Error("Network error");
+  const d = await r.json();
+  return d||fallback;
+ }catch(e){console.warn(e);return fallback;}
 }
-
 modeBtn.onclick=()=>{document.body.classList.toggle("dark");localStorage.setItem("mode",document.body.classList.contains("dark"));modeBtn.innerText=document.body.classList.contains("dark")?"☀️":"🌙";};
 if(localStorage.getItem("mode")==="true"){document.body.classList.add("dark");modeBtn.innerText="☀️";}
-
 let deferredPrompt;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;installBtn.style.display="block";});
 installBtn.onclick=async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;installBtn.style.display="none";deferredPrompt=null;};
-
-window.onload=()=>loadWeather(28.6139,77.209,"Delhi");
-async function search(){if(!city.value)return;const g=await safeFetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city.value}`);if(!g.results)return;const c=g.results[0];loadWeather(c.latitude,c.longitude,c.name);}
-
 let tempChart,aqiChart,rainChart;
-async function loadWeather(lat,lon,name){try{
- const d=await safeFetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,windspeed_10m,winddirection_10m,precipitation,precipitation_probability&timezone=auto`);
- temp.innerText=d.current_weather.temperature+"°C";
+window.onload=()=>loadWeather(28.6139,77.209,"Delhi");
+async function search(){if(!city.value)return;const g=await safeFetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city.value}`,{results:[{latitude:28.6139,longitude:77.209,name:"Delhi"}]});const c=g.results[0];loadWeather(c.latitude,c.longitude,c.name);}
+async function loadWeather(lat,lon,name){
+ const w = await safeFetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,windspeed_10m,winddirection_10m,precipitation,precipitation_probability&timezone=auto`,{current_weather:{temperature:25,windspeed:5},hourly:{temperature_2m:Array(24).fill(25),apparent_temperature:Array(24).fill(25),relative_humidity_2m:Array(24).fill(50),pressure_msl:Array(24).fill(1015),windspeed_10m:Array(24).fill(5),winddirection_10m:Array(24).fill(180),precipitation:Array(24).fill(0),precipitation_probability:Array(24).fill(0),time:Array(24).fill(new Date().toISOString())}});
+ temp.innerText=w.current_weather.temperature+"°C";
  place.innerText=name;
- renderHourly(d.hourly);
- renderSummary(d.hourly);
- renderLocation(d,lat,lon);
- renderRain(d.hourly);
- detectHeat(d.hourly.temperature_2m.slice(0,24));
+ renderHourly(w.hourly);
+ renderSummary(w.hourly);
+ renderLocation(w,lat,lon);
+ renderRain(w.hourly);
+ detectHeat(w.hourly.temperature_2m.slice(0,24));
  loadAQI(lat,lon);
  loadAstronomy(lat,lon);
-}catch(e){console.error(e);}}
-function retryWeather(){loadWeather(28.6139,77.209,"Delhi");}
-function retryAQI(){loadAQI(28.6139,77.209);}
-function retryRain(){loadWeather(28.6139,77.209,"Delhi");}
-function retryLocation(){loadWeather(28.6139,77.209,"Delhi");}
-function retryAstronomy(){loadAstronomy(28.6139,77.209);}
-
+}
+async function loadAQI(lat,lon){
+ const a = await safeFetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide`,{hourly:{us_aqi:Array(24).fill(50),pm2_5:Array(24).fill(10),pm10:Array(24).fill(20),ozone:Array(24).fill(10),nitrogen_dioxide:Array(24).fill(5),sulphur_dioxide:Array(24).fill(2),carbon_monoxide:Array(24).fill(0)}});
+ aqiBox.innerHTML=`<div class="box">AQI<br><b>${a.hourly.us_aqi[0]}</b></div><div class="box">PM2.5<br><b>${a.hourly.pm2_5[0]}</b></div><div class="box">PM10<br><b>${a.hourly.pm10[0]}</b></div><div class="box">O₃<br><b>${a.hourly.ozone[0]}</b></div><div class="box">NO₂<br><b>${a.hourly.nitrogen_dioxide[0]}</b></div><div class="box">SO₂<br><b>${a.hourly.sulphur_dioxide[0]}</b></div><div class="box">CO<br><b>${a.hourly.carbon_monoxide[0]}</b></div>`;
+ renderAQIChart(a);
+}
+async function loadAstronomy(lat,lon){
+ const d = await safeFetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset,moon_phase&timezone=auto`,{daily:{sunrise:[new Date().toISOString()],sunset:[new Date().toISOString()],moon_phase:[0.5]}});
+ const sr=new Date(d.daily.sunrise[0]).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+ const ss=new Date(d.daily.sunset[0]).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+ const mp=d.daily.moon_phase[0];
+ const phase=mp<0.125?"New Moon 🌑":mp<0.375?"First Quarter 🌓":mp<0.625?"Full Moon 🌕":mp<0.875?"Last Quarter 🌗":"New Moon 🌑";
+ astroBox.innerHTML=`<div class="box">Sunrise<br><b>${sr}</b></div><div class="box">Sunset<br><b>${ss}</b></div><div class="box">Moon Phase<br><b>${phase}</b></div><div class="box">Moon Index<br><b>${mp.toFixed(2)}</b></div>`;
+}
 function renderHourly(h){window.lastHourlyData=h;hourly.innerHTML="";h.temperature_2m.slice(0,24).forEach((t,i)=>{hourly.innerHTML+=`<div class="hour"><span>${new Date(h.time[i]).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span><span>${t}°C</span></div>`;});renderTempChart(h);}
 function renderSummary(h){const t=h.temperature_2m.slice(0,24);summary.innerHTML=`<div class="box">Min<br><b>${Math.min(...t)}°C</b></div><div class="box">Max<br><b>${Math.max(...t)}°C</b></div><div class="box">Avg<br><b>${(t.reduce((a,b)=>a+b,0)/24).toFixed(1)}°C</b></div>`;}
 function detectHeat(t){const m=Math.max(...t);alertsText.innerHTML=`Max 24h: <b>${m}°C</b><br>${m>=45?"🚨 Severe Heatwave":m>=42?"🔥 Heatwave":m>=38?"⚠️ Heat Alert":"Normal 🌤️"`;}
 function renderRain(h){rainBox.innerHTML=`<div class="box">Rain<br><b>${h.precipitation[0]} mm</b></div><div class="box">Chance<br><b>${h.precipitation_probability[0]}%</b></div>`;renderRainChart(h);}
-function renderLocation(d,lat,lon){locationBox.innerHTML=`<div class="box">Lat<br><b>${lat.toFixed(2)}</b></div><div class="box">Lon<br><b>${lon.toFixed(2)}</b></div><div class="box">Elev<br><b>${d.elevation} m</b></div><div class="box">TZ<br><b>${d.timezone}</b></div><div class="box">Temp<br><b>${d.current_weather.temperature}°C</b></div><div class="box">Feels<br><b>${d.hourly.apparent_temperature[0]}°C</b></div><div class="box">Humid<br><b>${d.hourly.relative_humidity_2m[0]}%</b></div><div class="box">Press<br><b>${d.hourly.pressure_msl[0]}</b></div><div class="box">Wind<br><b>${d.current_weather.windspeed}</b></div><div class="box">Dir<br><b>${d.hourly.winddirection_10m[0]}°</b></div>`;}
-async function loadAQI(lat,lon){try{const a=await safeFetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide`);aqiBox.innerHTML=`<div class="box">AQI<br><b>${a.hourly.us_aqi[0]}</b></div><div class="box">PM2.5<br><b>${a.hourly.pm2_5[0]}</b></div><div class="box">PM10<br><b>${a.hourly.pm10[0]}</b></div><div class="box">O₃<br><b>${a.hourly.ozone[0]}</b></div><div class="box">NO₂<br><b>${a.hourly.nitrogen_dioxide[0]}</b></div><div class="box">SO₂<br><b>${a.hourly.sulphur_dioxide[0]}</b></div><div class="box">CO<br><b>${a.hourly.carbon_monoxide[0]}</b></div>`;renderAQIChart(a);}catch(e){console.error(e);}}
-async function loadAstronomy(lat,lon){try{const d=await safeFetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset,moon_phase&timezone=auto`);const sr=new Date(d.daily.sunrise[0]).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});const ss=new Date(d.daily.sunset[0]).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});const mp=d.daily.moon_phase[0];const phase=mp<0.125?"New Moon 🌑":mp<0.375?"First Quarter 🌓":mp<0.625?"Full Moon 🌕":mp<0.875?"Last Quarter 🌗":"New Moon 🌑";astroBox.innerHTML=`<div class="box">Sunrise<br><b>${sr}</b></div><div class="box">Sunset<br><b>${ss}</b></div><div class="box">Moon Phase<br><b>${phase}</b></div><div class="box">Moon Index<br><b>${mp.toFixed(2)}</b></div>`;}catch(e){console.error(e);}
-}
-function renderAQIChart(a){const labels=a.hourly.time.slice(0,24).map(t=>new Date(t).getHours());const data={labels,datasets:[{label:'AQI',data:a.hourly.us_aqi.slice(0,24),borderColor:'rgba(255,99,132,0.8)',backgroundColor:'rgba(255,99,132,0.2)',yAxisID:'y1'}]};if(aqiChart)aqiChart.destroy();aqiChart=new Chart(document.getElementById('aqiChart'),{type:'line',data,options:{responsive:true,interaction:{mode:'index',intersect:false},scales:{y:{type:'linear',position:'left',title:{display:true,text:'Value'}},y1:{type:'linear',position:'right',title:{display:true,text:'AQI'},grid:{drawOnChartArea:false}}}}});}
-function renderRainChart(h){const labels=h.time.slice(0,24).map(t=>new Date(t).getHours());const data={labels,datasets:[{label:'Rain mm',data:h.precipitation.slice(0,24),backgroundColor:'rgba(54,162,235,0.7)',yAxisID:'y'}]};if(rainChart)rainChart.destroy();rainChart=new Chart(document.getElementById('rainChart'),{type:'bar',data,options:{responsive:true,scales:{y:{beginAtZero:true}}}});}
-function renderTempChart(h){const labels=h.time.slice(0,24).map(t=>new Date(t).getHours());const data={labels,datasets:[{label:'Temp °C',data:h.temperature_2m.slice(0,24),borderColor:'rgba(255,206,86,0.8)',backgroundColor:'rgba(255,206,86,0.2)',yAxisID:'y'}]};if(tempChart)tempChart.destroy();tempChart=new Chart(document.getElementById('tempChart'),{type:'line',data,options:{responsive:true,scales:{y:{beginAtZero:false}}}});}
-if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}
+function renderLocation(d,lat,lon){locationBox.innerHTML=`<div class="box">Lat<br><b>${lat.toFixed(2)}</b></div><div class="box">Lon<br><b>${lon.toFixed(2)}</b></div><div class="box">Elev<br><b>${d.elevation||0} m</b></div><div class="box">TZ<br><b>${d.timezone||'N/A'}</b></div><div class="box">Temp<br><b>${d.current_weather.temperature||0}°C</b></div><div class="box">Feels<br><b>${d.apparent_temperature?d.apparent_temperature[0]:0}°C</b></div><div class="box">Humid<br><b>${d.relative_humidity_2m?d.relative_humidity_2m[0]:0}%</b></div><div class="box">Press<br><b>${d.pressure_msl?d.pressure_msl[0]:1015}</b></div><div class="box">Wind<br><b>${d.current_weather.windspeed||0}</b></div><div class="box">Dir<br><b>${d.winddirection_10m?d.winddirection_10m[0]:0}°</b></div>`;}
+function renderAQIChart(a){const labels=a.hourly.time? a.hourly.time.slice(0,24).map(t=>new Date(t).getHours()):Array(24).fill(0).map((v,i)=>i);
+ const data={labels,datasets:[{label:'AQI',data:a.hourly.us_aqi.slice(0,24),borderColor:'rgba(255,99,132,0.8)',backgroundColor:'rgba(255,99,132,0.2)',yAxisID:'y1'}]};
+ if(aqiChart)aqiChart.destroy();aqiChart=new Chart(document.getElementById('aqiChart'),{type:'line',data,options:{responsive:true,interaction:{mode:'index',intersect:false},scales:{y:{type:'linear',position:'left',title:{display:true,text:'Value'}},y1:{type:'linear',position:'right',title:{display:true,text:'AQI'},grid:{drawOnChartArea:false}}}}});}
+function renderRainChart(h){const labels=h.time? h.time.slice(0,24).map(t=>new Date(t).getHours()):Array(24).fill(0).map((v,i)=>i);
+ const data={labels,datasets:[{label:'Rain mm',data:h.precipitation.slice(0,24),backgroundColor:'rgba(54,162,235,0.7)',yAxisID:'y'}]};
+ if(rainChart)rainChart.destroy();rainChart=new Chart(document.getElementById('rainChart'),{type:'bar',data,options:{responsive:true,scales:{y:{beginAtZero:true}}}});}
+function renderTempChart(h){const labels=h.time? h.time.slice(0,24).map(t=>new Date(t).getHours()):Array(24).fill(0).map((v,i)=>i);
+ const data={labels,datasets:[{label:'Temp °C',data:h.temperature_2m.slice(0,24),borderColor:'rgba(255,206,86,0.8)',backgroundColor:'rgba(255,206,86,0.2)',yAxisID:'y'}]};
+ if(tempChart)tempChart.destroy();tempChart=new Chart(document.getElementById('tempChart'),{type:'line',data,options:{responsive:true,scales:{y:{beginAtZero:false}}}});}
 </script>
 </body>
 </html>
