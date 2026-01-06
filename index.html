@@ -2,135 +2,194 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Climix Pro</title>
+<title>Climix</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#000000">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{min-height:100vh;display:flex;justify-content:center;font-family:system-ui,-apple-system,Segoe UI;background:linear-gradient(145deg,#050b18,#081a2e,#0a2236);color:#eaf1ff;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-body.dark{background:#000}
-.app{width:100%;max-width:420px;padding:16px;margin:16px;border-radius:28px;background:rgba(10,16,30,.85);backdrop-filter:blur(28px);box-shadow:0 20px 60px rgba(0,0,0,.85);}
-.card{background:rgba(25,35,55,.55);border-radius:20px;padding:16px;margin-bottom:14px;transition:background 0.5s;}
-body.dark .card{background:rgba(20,20,20,.9)}
-.center{text-align:center;}
-.temp{font-size:3rem;font-weight:700;margin-bottom:4px;}
-#place{font-size:1.6rem;font-weight:600;margin-bottom:6px;}
-.card h4{font-size:1.4rem;margin-bottom:10px;}
-.box{font-size:1.2rem;padding:14px;text-align:center;border-radius:12px;background:rgba(0,0,0,.25);}
-.hour{display:flex;justify-content:space-between;padding:8px 12px;margin-bottom:4px;border-radius:12px;background:rgba(0,0,0,.2);font-size:1.2rem;}
-input, button{font-size:1.2rem;padding:14px;border-radius:16px;}
-canvas{font-size:1rem;margin-top:6px;}
-#modeBtn{width:44px;height:44px;border-radius:50%;font-size:18px;margin-bottom:10px;position:absolute;top:16px;right:16px;}
-.hourly{max-height:200px;overflow-y:auto;margin-top:6px;}
-.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
-body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(0deg,#081a2e,#050b18);z-index:-1;animation:skyAnim 20s infinite alternate;}
-@keyframes skyAnim{0%{background:linear-gradient(0deg,#081a2e,#050b18);}50%{background:linear-gradient(0deg,#1b2b44,#0a2236);}100%{background:linear-gradient(0deg,#081a2e,#050b18);}}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI;
+  background:radial-gradient(circle at top,#0a2a43,#000);
+  color:#fff;
+  display:flex;
+  justify-content:center;
+}
+.app{
+  width:100%;
+  max-width:420px;
+  padding:16px;
+}
+.card{
+  background:rgba(255,255,255,0.08);
+  backdrop-filter:blur(14px);
+  border-radius:20px;
+  padding:16px;
+  margin-bottom:14px;
+}
+h2,h3{margin:0 0 10px}
+.temp{
+  font-size:3.4rem;
+  font-weight:700;
+}
+.big{
+  font-size:1.3rem;
+}
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.item{
+  background:rgba(0,0,0,0.25);
+  padding:12px;
+  border-radius:14px;
+  font-size:1.1rem;
+}
+input,button{
+  width:100%;
+  padding:14px;
+  font-size:1.2rem;
+  border-radius:14px;
+  border:none;
+}
+button{margin-top:10px}
 </style>
 </head>
 <body>
+
 <div class="app">
-  <button id="modeBtn">🌙</button>
-  <div class="card center"><h2>Climix Pro</h2></div>
-  <div class="card">
-    <input id="city" placeholder="Enter city">
-    <button onclick="searchCity()">Search</button>
-  </div>
-  <div class="card center">
-    <div class="temp" id="temp">--°C</div>
-    <div id="place">Ready</div>
-  </div>
-  <div class="card">
-    <h4>🌧️ Rain & Precipitation</h4>
-    <div class="grid" id="rainBox"></div>
-    <canvas id="rainChart" height="120"></canvas>
-  </div>
-  <div class="card">
-    <h4>🌫️ Air Quality (AQI)</h4>
-    <div class="grid" id="aqiBox"></div>
-    <canvas id="aqiChart" height="120"></canvas>
-  </div>
-  <div class="card">
-    <h4>📍 Location Conditions</h4>
-    <div class="grid" id="locationBox"></div>
-  </div>
-  <div class="card">
-    <h4>🌅 Sun & 🌙 Moon</h4>
-    <div class="grid" id="astroBox"></div>
-  </div>
-  <div class="card">
-    <h4>🌡️ Hourly Temperature (24h)</h4>
-    <div class="hourly" id="hourly"></div>
-    <div class="grid" id="summary"></div>
-  </div>
-  <div class="card">
-    <h4>📅 7-Day Forecast</h4>
-    <div class="grid" id="weekBox"></div>
-  </div>
-  <div class="card center">
-    <h4>⚠️ Weather Alerts</h4>
-    <div id="alertsText">--</div>
-  </div>
+
+<div class="card">
+  <input id="city" placeholder="Enter city">
+  <button onclick="loadByCity()">Search</button>
+</div>
+
+<div class="card">
+  <div class="temp" id="temp">--°C</div>
+  <div class="big" id="place">Waiting…</div>
+</div>
+
+<div class="card">
+  <h3>📍 Location Conditions</h3>
+  <div class="grid" id="loc"></div>
+</div>
+
+<div class="card">
+  <h3>🌫️ Air Quality (AQI)</h3>
+  <div class="grid" id="aqi"></div>
+</div>
+
+<div class="card">
+  <h3>🌡️ Hourly Temperature (24h)</h3>
+  <div id="hourly"></div>
+</div>
+
+<div class="card">
+  <h3>📅 7-Day Temperature</h3>
+  <div class="grid" id="week"></div>
+</div>
+
+<div class="card">
+  <h3>🌅 Sun & 🌙 Moon</h3>
+  <div class="grid" id="astro"></div>
+</div>
+
+<div class="card">
+  © Manik Roy 2025. All Rights Reserved.
+</div>
+
 </div>
 
 <script>
-// Dark Mode
-const modeBtn=document.getElementById('modeBtn');
-modeBtn.onclick=()=>{document.body.classList.toggle('dark');modeBtn.innerText=document.body.classList.contains('dark')?"☀️":"🌙";};
-if(localStorage.getItem('mode')==='true'){document.body.classList.add('dark');modeBtn.innerText="☀️";}
-
-// Fetch with Fallback
-async function fetchJSON(url,fallback){try{const r=await fetch(url);if(!r.ok)throw new Error("Network");return await r.json();}catch(e){return fallback;}}
-
-// Search
-async function searchCity(){
-  const city=document.getElementById('city').value;
-  if(!city) return;
-  const geo=await fetchJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${city}`,{results:[{latitude:28.6139,longitude:77.209,name:'Delhi'}]});
-  const loc=geo.results[0];
-  loadWeather(loc.latitude,loc.longitude,loc.name);
+async function fetchJSON(url){
+  try{
+    const r=await fetch(url);
+    if(!r.ok) throw 0;
+    return await r.json();
+  }catch{
+    return null;
+  }
 }
 
-// Load Weather + AQI + Location + Astronomy + Week
+async function loadByCity(){
+  const name=city.value.trim();
+  if(!name) return;
+
+  const geo=await fetchJSON(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${name}&count=1`
+  );
+  if(!geo || !geo.results) return;
+
+  const l=geo.results[0];
+  loadWeather(l.latitude,l.longitude,l.name);
+}
+
 async function loadWeather(lat,lon,name){
-  document.getElementById('place').innerText=name;
-  document.getElementById('temp').innerText='Loading...';
-  document.getElementById('alertsText').innerText='Loading...';
+  place.textContent=name;
 
-  const weather=await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,windspeed_10m,winddirection_10m,precipitation,precipitation_probability&daily=temperature_2m_max,temperature_2m_min&timezone=auto`,{
-    current_weather:{temperature:25,windspeed:5,winddirection:180},
-    hourly:{temperature_2m:Array(24).fill(25),apparent_temperature:Array(24).fill(25),relative_humidity_2m:Array(24).fill(50),pressure_msl:Array(24).fill(1015),windspeed_10m:Array(24).fill(5),winddirection_10m:Array(24).fill(180),precipitation:Array(24).fill(0),precipitation_probability:Array(24).fill(0),time:Array(24).fill(new Date().toISOString())},
-    daily:{temperature_2m_max:Array(7).fill(30),temperature_2m_min:Array(7).fill(22),time:Array(7).fill(new Date().toISOString())}
-  });
-  document.getElementById('temp').innerText=weather.current_weather.temperature+"°C";
+  const w=await fetchJSON(
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}
+    &current_weather=true
+    &hourly=temperature_2m,relative_humidity_2m,pressure_msl,windspeed_10m,precipitation
+    &daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,moon_phase
+    &timezone=auto`
+  );
+  if(!w) return;
 
-  // Render all sections
-  renderHourly(weather.hourly);
-  renderSummary(weather.hourly);
-  renderRain(weather.hourly);
-  detectHeat(weather.hourly.temperature_2m);
-  renderWeek(weather.daily);
+  temp.textContent=w.current_weather.temperature+"°C";
 
-  // AQI - fallback to static if API fails
-  const aqiData=await fetchJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,ammonia,voc`,{
-    hourly:{us_aqi:Array(24).fill(50),pm2_5:Array(24).fill(10),pm10:Array(24).fill(20),ozone:Array(24).fill(10),nitrogen_dioxide:Array(24).fill(5),sulphur_dioxide:Array(24).fill(2),carbon_monoxide:Array(24).fill(0),ammonia:Array(24).fill(1),voc:Array(24).fill(0),time:Array(24).fill(new Date().toISOString())}
-  });
-  renderAQI(aqiData.hourly);
+  loc.innerHTML=`
+    <div class="item">Humidity: ${w.hourly.relative_humidity_2m[0]}%</div>
+    <div class="item">Pressure: ${w.hourly.pressure_msl[0]} hPa</div>
+    <div class="item">Wind: ${w.current_weather.windspeed} km/h</div>
+    <div class="item">Rain: ${w.hourly.precipitation[0]} mm</div>
+    <div class="item">Latitude: ${lat.toFixed(2)}</div>
+    <div class="item">Longitude: ${lon.toFixed(2)}</div>
+    <div class="item">Timezone: ${w.timezone}</div>
+    <div class="item">Elevation: ${w.elevation} m</div>
+    <div class="item">Day Max: ${w.daily.temperature_2m_max[0]}°C</div>
+    <div class="item">Day Min: ${w.daily.temperature_2m_min[0]}°C</div>
+  `;
 
-  renderLocation(weather,lat,lon);
+  const aq=await fetchJSON(
+    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}
+    &hourly=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,ammonia`
+  );
+  if(aq){
+    aqi.innerHTML=`
+      <div class="item">AQI: ${aq.hourly.us_aqi[0]}</div>
+      <div class="item">PM2.5: ${aq.hourly.pm2_5[0]}</div>
+      <div class="item">PM10: ${aq.hourly.pm10[0]}</div>
+      <div class="item">O₃: ${aq.hourly.ozone[0]}</div>
+      <div class="item">NO₂: ${aq.hourly.nitrogen_dioxide[0]}</div>
+      <div class="item">SO₂: ${aq.hourly.sulphur_dioxide[0]}</div>
+      <div class="item">CO: ${aq.hourly.carbon_monoxide[0]}</div>
+      <div class="item">NH₃: ${aq.hourly.ammonia[0]}</div>
+      <div class="item">Category: ${aq.hourly.us_aqi[0]<50?"Good":"Poor"}</div>
+      <div class="item">Health: Limit outdoor activity</div>
+    `;
+  }
 
-  const astro=await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset,moon_phase&timezone=auto`,{
-    daily:{sunrise:[new Date().toISOString()],sunset:[new Date().toISOString()],moon_phase:[0.5]}
-  });
-  renderAstronomy(astro.daily);
+  hourly.innerHTML="";
+  for(let i=0;i<24;i++){
+    hourly.innerHTML+=`<div class="item">Hour ${i}: ${w.hourly.temperature_2m[i]}°C</div>`;
+  }
+
+  week.innerHTML="";
+  for(let i=0;i<7;i++){
+    week.innerHTML+=`
+      <div class="item">Day ${i+1}<br>${w.daily.temperature_2m_min[i]}° / ${w.daily.temperature_2m_max[i]}°</div>
+    `;
+  }
+
+  astro.innerHTML=`
+    <div class="item">Sunrise: ${w.daily.sunrise[0].split("T")[1]}</div>
+    <div class="item">Sunset: ${w.daily.sunset[0].split("T")[1]}</div>
+    <div class="item">Moon phase: ${w.daily.moon_phase[0]}</div>
+    <div class="item">Day length: Auto</div>
+  `;
 }
 
-// Initial Load
-loadWeather(28.6139,77.209,"Delhi");
-
-// PWA Service Worker
-if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js');}
+loadWeather(28.61,77.20,"Delhi");
 </script>
 </body>
 </html>
