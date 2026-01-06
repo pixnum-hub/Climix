@@ -13,18 +13,25 @@
 body{min-height:100vh;display:flex;justify-content:center;font-family:system-ui,-apple-system,Segoe UI;background:linear-gradient(145deg,#050b18,#081a2e,#0a2236);color:#eaf1ff;transition:background 0.5s;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 body.dark{background:#000}
 .app{width:100%;max-width:420px;padding:16px;margin:16px;border-radius:28px;background:rgba(10,16,30,.85);backdrop-filter:blur(28px);box-shadow:0 20px 60px rgba(0,0,0,.85);}
-.card{background:rgba(25,35,55,.55);border-radius:20px;padding:14px;margin-bottom:12px;transition:background 0.5s;}
+.card{background:rgba(25,35,55,.55);border-radius:20px;padding:16px;margin-bottom:14px;transition:background 0.5s;}
 body.dark .card{background:rgba(20,20,20,.9)}
 .center{text-align:center;}
-input{width:100%;padding:12px;border-radius:14px;border:none;background:rgba(255,255,255,.12);color:#fff;margin-top:6px;}
-button{width:100%;padding:12px;border:none;border-radius:14px;background:#1f6feb;color:#fff;font-weight:600;margin-top:6px;cursor:pointer;}
-body.dark button{background:#222}
+
+/* ----- Font Sizes for Elder-Friendly UI ----- */
+.temp{font-size:3rem;font-weight:700;margin-bottom:4px;}
+#place{font-size:1.6rem;font-weight:600;margin-bottom:6px;}
+.card h4{font-size:1.4rem;margin-bottom:10px;}
+.box{font-size:1.2rem;padding:14px;text-align:center;border-radius:12px;background:rgba(0,0,0,.25);}
+.hour{display:flex;justify-content:space-between;padding:8px 12px;margin-bottom:4px;border-radius:12px;background:rgba(0,0,0,.2);font-size:1.2rem;}
+input, button{font-size:1.2rem;padding:14px;border-radius:16px;}
+canvas{font-size:1rem;margin-top:6px;}
+
+/* ----- Layout & Buttons ----- */
 #modeBtn{width:44px;height:44px;border-radius:50%;font-size:18px;margin-bottom:10px;position:absolute;top:16px;right:16px;}
 .hourly{max-height:200px;overflow-y:auto;margin-top:6px;}
-.hour{display:flex;justify-content:space-between;padding:6px 10px;margin-bottom:4px;border-radius:12px;background:rgba(0,0,0,.2);font-size:14px;}
-canvas{background:rgba(255,255,255,0.05);border-radius:12px;margin-top:6px;}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
-.box{background:rgba(0,0,0,.25);padding:10px;border-radius:12px;text-align:center;font-size:13px;}
+
+/* ----- Animated Background ----- */
 body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(0deg,#081a2e,#050b18);z-index:-1;animation:skyAnim 20s infinite alternate;}
 @keyframes skyAnim{0%{background:linear-gradient(0deg,#081a2e,#050b18);}50%{background:linear-gradient(0deg,#1b2b44,#0a2236);}100%{background:linear-gradient(0deg,#081a2e,#050b18);}}
 </style>
