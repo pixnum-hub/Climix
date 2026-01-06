@@ -2,32 +2,36 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Climix Step2</title>
+<title>Climix Pro</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#000">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body {margin:0;padding:0;font-family:system-ui;display:flex;justify-content:center;background:linear-gradient(145deg,#050b18,#081a2e,#0a2236);color:#eaf1ff;min-height:100vh;}
+/* ----- General Styles ----- */
+*{margin:0;padding:0;box-sizing:border-box}
+body{min-height:100vh;display:flex;justify-content:center;font-family:system-ui,-apple-system,Segoe UI;background:linear-gradient(145deg,#050b18,#081a2e,#0a2236);color:#eaf1ff;transition:background 0.5s;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 body.dark{background:#000}
-.app{width:100%;max-width:420px;padding:16px;margin:16px;border-radius:28px;background:rgba(10,16,30,.85);backdrop-filter:blur(28px);}
-.card{background:rgba(25,35,55,.55);border-radius:20px;padding:14px;margin-bottom:12px;}
-.center{text-align:center}
-input,button{width:100%;padding:12px;border:none;border-radius:14px;margin-top:6px;}
-button{background:#1f6feb;color:#fff;font-weight:600;cursor:pointer;}
-#modeBtn{width:44px;height:44px;border-radius:50%;font-size:18px;margin-bottom:10px;}
+.app{width:100%;max-width:420px;padding:16px;margin:16px;border-radius:28px;background:rgba(10,16,30,.85);backdrop-filter:blur(28px);box-shadow:0 20px 60px rgba(0,0,0,.85);}
+.card{background:rgba(25,35,55,.55);border-radius:20px;padding:14px;margin-bottom:12px;transition:background 0.5s;}
+body.dark .card{background:rgba(20,20,20,.9)}
+.center{text-align:center;}
+input{width:100%;padding:12px;border-radius:14px;border:none;background:rgba(255,255,255,.12);color:#fff;margin-top:6px;}
+button{width:100%;padding:12px;border:none;border-radius:14px;background:#1f6feb;color:#fff;font-weight:600;margin-top:6px;cursor:pointer;}
+body.dark button{background:#222}
+#modeBtn{width:44px;height:44px;border-radius:50%;font-size:18px;margin-bottom:10px;position:absolute;top:16px;right:16px;}
 .hourly{max-height:200px;overflow-y:auto;margin-top:6px;}
-.hour{display:flex;justify-content:space-between;padding:6px 10px;margin-bottom:4px;background:rgba(0,0,0,.2);border-radius:12px;font-size:14px;}
+.hour{display:flex;justify-content:space-between;padding:6px 10px;margin-bottom:4px;border-radius:12px;background:rgba(0,0,0,.2);font-size:14px;}
 canvas{background:rgba(255,255,255,0.05);border-radius:12px;margin-top:6px;}
-.topbar{display:flex;justify-content:space-between;margin-bottom:8px;}
-.topbar button{width:44px;height:44px;border-radius:50%;font-size:18px;}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.box{background:rgba(0,0,0,.25);padding:10px;border-radius:12px;text-align:center;font-size:13px;}
+body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(0deg,#081a2e,#050b18);z-index:-1;animation:skyAnim 20s infinite alternate;}
+@keyframes skyAnim{0%{background:linear-gradient(0deg,#081a2e,#050b18);}50%{background:linear-gradient(0deg,#1b2b44,#0a2236);}100%{background:linear-gradient(0deg,#081a2e,#050b18);}}
 </style>
 </head>
 <body>
 <div class="app">
-  <div class="center topbar">
-    <button id="modeBtn">🌙</button>
-  </div>
-
-  <div class="card center"><h2>Climix</h2></div>
+  <button id="modeBtn">🌙</button>
+  <div class="card center"><h2>Climix Pro</h2></div>
 
   <div class="card">
     <input id="city" placeholder="Enter city">
@@ -35,110 +39,142 @@ canvas{background:rgba(255,255,255,0.05);border-radius:12px;margin-top:6px;}
   </div>
 
   <div class="card center">
-    <h3>Current Temperature</h3>
-    <div id="temp">--°C</div>
+    <div class="temp" id="temp">--°C</div>
     <div id="place">Ready</div>
   </div>
 
-  <div class="card center">
-    <h3>Rain / Precipitation</h3>
-    <div id="rain">-- mm / --%</div>
+  <div class="card">
+    <h4>🌧️ Rain & Precipitation</h4>
+    <div class="grid" id="rainBox"></div>
     <canvas id="rainChart" height="120"></canvas>
-    <button onclick="retryRain()">Retry Rain</button>
-  </div>
-
-  <div class="card center">
-    <h3>Air Quality (AQI)</h3>
-    <div id="aqi">--</div>
-    <canvas id="aqiChart" height="120"></canvas>
-    <button onclick="retryAQI()">Retry AQI</button>
   </div>
 
   <div class="card">
-    <h3>Hourly Temperature (24h)</h3>
+    <h4>🌫️ Air Quality (AQI)</h4>
+    <div class="grid" id="aqiBox"></div>
+    <canvas id="aqiChart" height="120"></canvas>
+  </div>
+
+  <div class="card">
+    <h4>📍 Location Conditions</h4>
+    <div class="grid" id="locationBox"></div>
+  </div>
+
+  <div class="card">
+    <h4>🌅 Sun & 🌙 Moon</h4>
+    <div class="grid" id="astroBox"></div>
+  </div>
+
+  <div class="card">
+    <h4>🌡️ Hourly Temperature (24h)</h4>
     <div class="hourly" id="hourly"></div>
     <div class="grid" id="summary"></div>
   </div>
 
   <div class="card center">
-    <h3>Weather Alerts</h3>
+    <h4>⚠️ Weather Alerts</h4>
     <div id="alertsText">--</div>
-    <button onclick="retryWeather()">Retry Weather</button>
   </div>
+
 </div>
 
 <script>
+// ----- Dark Mode -----
 const modeBtn=document.getElementById('modeBtn');
 modeBtn.onclick=()=>{document.body.classList.toggle('dark');modeBtn.innerText=document.body.classList.contains('dark')?"☀️":"🌙";};
 if(localStorage.getItem('mode')==='true'){document.body.classList.add('dark');modeBtn.innerText="☀️";}
 
+// ----- Charts -----
 let tempChart,aqiChart,rainChart;
 
+// ----- Fetch with Fallback -----
 async function fetchJSON(url,fallback){try{const r=await fetch(url);if(!r.ok)throw new Error("Network");return await r.json();}catch(e){console.warn(e);return fallback;}}
 
-async function searchCity(){const cityName=document.getElementById('city').value;if(!cityName)return;const geo=await fetchJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${cityName}`,{results:[{latitude:28.6139,longitude:77.209,name:'Delhi'}]});const loc=geo.results[0];loadWeather(loc.latitude,loc.longitude,loc.name);}
+// ----- Search -----
+async function searchCity(){
+  const cityName=document.getElementById('city').value;
+  if(!cityName) return;
+  const geo=await fetchJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${cityName}`,{results:[{latitude:28.6139,longitude:77.209,name:'Delhi'}]});
+  const loc=geo.results[0];
+  loadWeather(loc.latitude,loc.longitude,loc.name);
+}
 
+// ----- Load Weather + AQI + Location + Astronomy -----
 async function loadWeather(lat,lon,name){
-  place.innerText=name;
-  temp.innerText='Loading...';
-  rain.innerText='-- mm / --%';
-  aqi.innerText='--';
-  alertsText.innerText='Loading...';
+  document.getElementById('place').innerText=name;
+  document.getElementById('temp').innerText='Loading...';
+  document.getElementById('alertsText').innerText='Loading...';
 
   // Weather
-  const weather=await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,precipitation,precipitation_probability&timezone=auto`,{current_weather:{temperature:25},hourly:{temperature_2m:Array(24).fill(25),precipitation:Array(24).fill(0),precipitation_probability:Array(24).fill(0),time:Array(24).fill(new Date().toISOString())}});
-  temp.innerText=weather.current_weather.temperature+"°C";
+  const weather=await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,windspeed_10m,winddirection_10m,precipitation,precipitation_probability&timezone=auto`,{current_weather:{temperature:25,windspeed:5,winddirection:180},hourly:{temperature_2m:Array(24).fill(25),apparent_temperature:Array(24).fill(25),relative_humidity_2m:Array(24).fill(50),pressure_msl:Array(24).fill(1015),windspeed_10m:Array(24).fill(5),winddirection_10m:Array(24).fill(180),precipitation:Array(24).fill(0),precipitation_probability:Array(24).fill(0),time:Array(24).fill(new Date().toISOString())}});
+  document.getElementById('temp').innerText=weather.current_weather.temperature+"°C";
   renderHourly(weather.hourly);
   renderSummary(weather.hourly);
   renderRain(weather.hourly);
   detectHeat(weather.hourly.temperature_2m);
 
   // AQI
-  const aqiData=await fetchJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi`,{hourly:{us_aqi:Array(24).fill(50),time:Array(24).fill(new Date().toISOString())}});
-  aqi.innerText=aqiData.hourly.us_aqi[0];
-  renderAQIChart(aqiData.hourly);
+  const aqiData=await fetchJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide`,{hourly:{us_aqi:Array(24).fill(50),pm2_5:Array(24).fill(10),pm10:Array(24).fill(20),ozone:Array(24).fill(10),nitrogen_dioxide:Array(24).fill(5),sulphur_dioxide:Array(24).fill(2),carbon_monoxide:Array(24).fill(0),time:Array(24).fill(new Date().toISOString())}});
+  renderAQI(aqiData.hourly);
+
+  // Location Conditions
+  renderLocation(weather,lat,lon);
+
+  // Astronomy
+  const astro=await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset,moon_phase&timezone=auto`,{daily:{sunrise:[new Date().toISOString()],sunset:[new Date().toISOString()],moon_phase:[0.5]}});
+  renderAstronomy(astro.daily);
 }
 
-function renderHourly(h){hourly.innerHTML="";h.temperature_2m.slice(0,24).forEach((t,i)=>{hourly.innerHTML+=`<div class="hour"><span>${new Date(h.time[i]).getHours()}:00</span><span>${t}°C</span></div>`;});renderTempChart(h);}
+// ----- Render Functions -----
+function renderHourly(h){
+  const hourly=document.getElementById('hourly'); hourly.innerHTML="";
+  h.temperature_2m.slice(0,24).forEach((t,i)=>{hourly.innerHTML+=`<div class="hour"><span>${new Date(h.time[i]).getHours()}:00</span><span>${t}°C</span></div>`;});
+}
 
 function renderSummary(h){
   const t=h.temperature_2m.slice(0,24);
-  summary.innerHTML=`Min: ${Math.min(...t)}°C | Max: ${Math.max(...t)}°C | Avg: ${(t.reduce((a,b)=>a+b,0)/24).toFixed(1)}°C`;
+  document.getElementById('summary').innerHTML=`<div class="box">Min<br><b>${Math.min(...t)}°C</b></div><div class="box">Max<br><b>${Math.max(...t)}°C</b></div><div class="box">Avg<br><b>${(t.reduce((a,b)=>a+b,0)/24).toFixed(1)}°C</b></div>`;
 }
 
 function detectHeat(t){
   const m=Math.max(...t);
-  alertsText.innerHTML=m>=45?"🚨 Severe Heatwave":m>=42?"🔥 Heatwave":m>=38?"⚠️ Heat Alert":"Normal 🌤️";
+  document.getElementById('alertsText').innerHTML=m>=45?"🚨 Severe Heatwave":m>=42?"🔥 Heatwave":m>=38?"⚠️ Heat Alert":"Normal 🌤️";
 }
 
 function renderRain(h){
-  rain.innerText=h.precipitation[0]+" mm / "+h.precipitation_probability[0]+"%";
+  const rainBox=document.getElementById('rainBox'); rainBox.innerHTML="";
+  rainBox.innerHTML=`<div class="box">Rain<br><b>${h.precipitation[0]} mm</b></div><div class="box">Chance<br><b>${h.precipitation_probability[0]}%</b></div>`;
   const labels=h.time.slice(0,24).map(t=>new Date(t).getHours());
   const data={labels,datasets:[{label:'Rain mm',data:h.precipitation.slice(0,24),backgroundColor:'rgba(54,162,235,0.7)'}]};
-  if(rainChart)rainChart.destroy();
+  if(rainChart) rainChart.destroy();
   rainChart=new Chart(document.getElementById('rainChart'),{type:'bar',data,options:{responsive:true,scales:{y:{beginAtZero:true}}}});
 }
 
-function renderTempChart(h){
-  const labels=h.time.slice(0,24).map(t=>new Date(t).getHours());
-  const data={labels,datasets:[{label:'Temp °C',data:h.temperature_2m.slice(0,24),borderColor:'rgba(255,206,86,0.8)',backgroundColor:'rgba(255,206,86,0.2)'}]};
-  if(tempChart)tempChart.destroy();
-  tempChart=new Chart(document.getElementById('aqiChart'),{type:'line',data,options:{responsive:true,scales:{y:{beginAtZero:false}}}});
-}
-
-function renderAQIChart(h){
+function renderAQI(h){
+  const aqiBox=document.getElementById('aqiBox'); aqiBox.innerHTML="";
+  const keys=['US-AQI','PM2.5','PM10','O₃','NO₂','SO₂','CO'];
+  const values=[h.us_aqi[0],h.pm2_5[0],h.pm10[0],h.ozone[0],h.nitrogen_dioxide[0],h.sulphur_dioxide[0],h.carbon_monoxide[0]];
+  keys.forEach((k,i)=>{aqiBox.innerHTML+=`<div class="box">${k}<br><b>${values[i]}</b></div>`;});
   const labels=h.time.slice(0,24).map(t=>new Date(t).getHours());
   const data={labels,datasets:[{label:'AQI',data:h.us_aqi.slice(0,24),borderColor:'rgba(255,99,132,0.8)',backgroundColor:'rgba(255,99,132,0.2)'}]};
-  if(aqiChart)aqiChart.destroy();
+  if(aqiChart) aqiChart.destroy();
   aqiChart=new Chart(document.getElementById('aqiChart'),{type:'line',data,options:{responsive:true,scales:{y:{beginAtZero:true}}}});
 }
 
-// Retry buttons
-function retryRain(){if(place.innerText!=="Ready")loadWeather(28.6139,77.209,place.innerText);}
-function retryAQI(){if(place.innerText!=="Ready")loadWeather(28.6139,77.209,place.innerText);}
-function retryWeather(){if(place.innerText!=="Ready")loadWeather(28.6139,77.209,place.innerText);}
+function renderLocation(d,lat,lon){
+  const locBox=document.getElementById('locationBox'); locBox.innerHTML="";
+  locBox.innerHTML=`<div class="box">Lat<br><b>${lat.toFixed(2)}</b></div><div class="box">Lon<br><b>${lon.toFixed(2)}</b></div><div class="box">Elev<br><b>${d.elevation||0} m</b></div><div class="box">TZ<br><b>${d.timezone||'N/A'}</b></div><div class="box">Temp<br><b>${d.current_weather.temperature||0}°C</b></div><div class="box">Feels<br><b>${d.apparent_temperature?d.apparent_temperature[0]:0}°C</b></div><div class="box">Humid<br><b>${d.relative_humidity_2m?d.relative_humidity_2m[0]:0}%</b></div><div class="box">Press<br><b>${d.pressure_msl?d.pressure_msl[0]:1015}</b></div><div class="box">Wind<br><b>${d.current_weather.windspeed||0}</b></div><div class="box">Dir<br><b>${d.winddirection_10m?d.winddirection_10m[0]:0}°</b></div>`;
+}
 
-// Initial load
+function renderAstronomy(d){
+  const astroBox=document.getElementById('astroBox');
+  const sr=new Date(d.sunrise[0]).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const ss=new Date(d.sunset[0]).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const mp=d.moon_phase[0]; const phase=mp<0.125?"New 🌑":mp<0.375?"First 🌓":mp<0.625?"Full 🌕":mp<0.875?"Last 🌗":"New 🌑";
+  astroBox.innerHTML=`<div class="box">Sunrise<br><b>${sr}</b></div><div class="box">Sunset<br><b>${ss}</b></div><div class="box">Moon Phase<br><b>${phase}</b></div><div class="box">Moon Index<br><b>${mp.toFixed(2)}</b></div>`;
+}
+
+// ----- Initial Load -----
 loadWeather(28.6139,77.209,"Delhi");
 </script>
 </body>
