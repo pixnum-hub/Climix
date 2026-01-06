@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <title>Climix Pro</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#000">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 /* ----- General Styles ----- */
@@ -126,56 +127,21 @@ async function loadWeather(lat,lon,name){
 }
 
 // ----- Render Functions -----
-function renderHourly(h){
-  const hourly=document.getElementById('hourly'); hourly.innerHTML="";
-  h.temperature_2m.slice(0,24).forEach((t,i)=>{hourly.innerHTML+=`<div class="hour"><span>${new Date(h.time[i]).getHours()}:00</span><span>${t}°C</span></div>`;});
-}
-
-function renderSummary(h){
-  const t=h.temperature_2m.slice(0,24);
-  document.getElementById('summary').innerHTML=`<div class="box">Min<br><b>${Math.min(...t)}°C</b></div><div class="box">Max<br><b>${Math.max(...t)}°C</b></div><div class="box">Avg<br><b>${(t.reduce((a,b)=>a+b,0)/24).toFixed(1)}°C</b></div>`;
-}
-
-function detectHeat(t){
-  const m=Math.max(...t);
-  document.getElementById('alertsText').innerHTML=m>=45?"🚨 Severe Heatwave":m>=42?"🔥 Heatwave":m>=38?"⚠️ Heat Alert":"Normal 🌤️";
-}
-
-function renderRain(h){
-  const rainBox=document.getElementById('rainBox'); rainBox.innerHTML="";
-  rainBox.innerHTML=`<div class="box">Rain<br><b>${h.precipitation[0]} mm</b></div><div class="box">Chance<br><b>${h.precipitation_probability[0]}%</b></div>`;
-  const labels=h.time.slice(0,24).map(t=>new Date(t).getHours());
-  const data={labels,datasets:[{label:'Rain mm',data:h.precipitation.slice(0,24),backgroundColor:'rgba(54,162,235,0.7)'}]};
-  if(rainChart) rainChart.destroy();
-  rainChart=new Chart(document.getElementById('rainChart'),{type:'bar',data,options:{responsive:true,scales:{y:{beginAtZero:true}}}});
-}
-
-function renderAQI(h){
-  const aqiBox=document.getElementById('aqiBox'); aqiBox.innerHTML="";
-  const keys=['US-AQI','PM2.5','PM10','O₃','NO₂','SO₂','CO'];
-  const values=[h.us_aqi[0],h.pm2_5[0],h.pm10[0],h.ozone[0],h.nitrogen_dioxide[0],h.sulphur_dioxide[0],h.carbon_monoxide[0]];
-  keys.forEach((k,i)=>{aqiBox.innerHTML+=`<div class="box">${k}<br><b>${values[i]}</b></div>`;});
-  const labels=h.time.slice(0,24).map(t=>new Date(t).getHours());
-  const data={labels,datasets:[{label:'AQI',data:h.us_aqi.slice(0,24),borderColor:'rgba(255,99,132,0.8)',backgroundColor:'rgba(255,99,132,0.2)'}]};
-  if(aqiChart) aqiChart.destroy();
-  aqiChart=new Chart(document.getElementById('aqiChart'),{type:'line',data,options:{responsive:true,scales:{y:{beginAtZero:true}}}});
-}
-
-function renderLocation(d,lat,lon){
-  const locBox=document.getElementById('locationBox'); locBox.innerHTML="";
-  locBox.innerHTML=`<div class="box">Lat<br><b>${lat.toFixed(2)}</b></div><div class="box">Lon<br><b>${lon.toFixed(2)}</b></div><div class="box">Elev<br><b>${d.elevation||0} m</b></div><div class="box">TZ<br><b>${d.timezone||'N/A'}</b></div><div class="box">Temp<br><b>${d.current_weather.temperature||0}°C</b></div><div class="box">Feels<br><b>${d.apparent_temperature?d.apparent_temperature[0]:0}°C</b></div><div class="box">Humid<br><b>${d.relative_humidity_2m?d.relative_humidity_2m[0]:0}%</b></div><div class="box">Press<br><b>${d.pressure_msl?d.pressure_msl[0]:1015}</b></div><div class="box">Wind<br><b>${d.current_weather.windspeed||0}</b></div><div class="box">Dir<br><b>${d.winddirection_10m?d.winddirection_10m[0]:0}°</b></div>`;
-}
-
-function renderAstronomy(d){
-  const astroBox=document.getElementById('astroBox');
-  const sr=new Date(d.sunrise[0]).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-  const ss=new Date(d.sunset[0]).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-  const mp=d.moon_phase[0]; const phase=mp<0.125?"New 🌑":mp<0.375?"First 🌓":mp<0.625?"Full 🌕":mp<0.875?"Last 🌗":"New 🌑";
-  astroBox.innerHTML=`<div class="box">Sunrise<br><b>${sr}</b></div><div class="box">Sunset<br><b>${ss}</b></div><div class="box">Moon Phase<br><b>${phase}</b></div><div class="box">Moon Index<br><b>${mp.toFixed(2)}</b></div>`;
-}
+function renderHourly(h){const hourly=document.getElementById('hourly'); hourly.innerHTML=""; h.temperature_2m.slice(0,24).forEach((t,i)=>{hourly.innerHTML+=`<div class="hour"><span>${new Date(h.time[i]).getHours()}:00</span><span>${t}°C</span></div>`;});}
+function renderSummary(h){const t=h.temperature_2m.slice(0,24);document.getElementById('summary').innerHTML=`<div class="box">Min<br><b>${Math.min(...t)}°C</b></div><div class="box">Max<br><b>${Math.max(...t)}°C</b></div><div class="box">Avg<br><b>${(t.reduce((a,b)=>a+b,0)/24).toFixed(1)}°C</b></div>`;}
+function detectHeat(t){const m=Math.max(...t);document.getElementById('alertsText').innerHTML=m>=45?"🚨 Severe Heatwave":m>=42?"🔥 Heatwave":m>=38?"⚠️ Heat Alert":"Normal 🌤️";}
+function renderRain(h){const rainBox=document.getElementById('rainBox'); rainBox.innerHTML=`<div class="box">Rain<br><b>${h.precipitation[0]} mm</b></div><div class="box">Chance<br><b>${h.precipitation_probability[0]}%</b></div>`; const labels=h.time.slice(0,24).map(t=>new Date(t).getHours()); const data={labels,datasets:[{label:'Rain mm',data:h.precipitation.slice(0,24),backgroundColor:'rgba(54,162,235,0.7)'}]}; if(rainChart) rainChart.destroy(); rainChart=new Chart(document.getElementById('rainChart'),{type:'bar',data,options:{responsive:true,scales:{y:{beginAtZero:true}}}});}
+function renderAQI(h){const aqiBox=document.getElementById('aqiBox'); aqiBox.innerHTML=""; const keys=['US-AQI','PM2.5','PM10','O₃','NO₂','SO₂','CO']; const values=[h.us_aqi[0],h.pm2_5[0],h.pm10[0],h.ozone[0],h.nitrogen_dioxide[0],h.sulphur_dioxide[0],h.carbon_monoxide[0]]; keys.forEach((k,i)=>{aqiBox.innerHTML+=`<div class="box">${k}<br><b>${values[i]}</b></div>`;}); const labels=h.time.slice(0,24).map(t=>new Date(t).getHours()); const data={labels,datasets:[{label:'AQI',data:h.us_aqi.slice(0,24),borderColor:'rgba(255,99,132,0.8)',backgroundColor:'rgba(255,99,132,0.2)'}]}; if(aqiChart) aqiChart.destroy(); aqiChart=new Chart(document.getElementById('aqiChart'),{type:'line',data,options:{responsive:true,scales:{y:{beginAtZero:true}}}});}
+function renderLocation(d,lat,lon){const locBox=document.getElementById('locationBox'); locBox.innerHTML=""; locBox.innerHTML=`<div class="box">Lat<br><b>${lat.toFixed(2)}</b></div><div class="box">Lon<br><b>${lon.toFixed(2)}</b></div><div class="box">Elev<br><b>${d.elevation||0} m</b></div><div class="box">TZ<br><b>${d.timezone||'N/A'}</b></div><div class="box">Temp<br><b>${d.current_weather.temperature||0}°C</b></div><div class="box">Feels<br><b>${d.apparent_temperature?d.apparent_temperature[0]:0}°C</b></div><div class="box">Humid<br><b>${d.relative_humidity_2m?d.relative_humidity_2m[0]:0}%</b></div><div class="box">Press<br><b>${d.pressure_msl?d.pressure_msl[0]:1015}</b></div><div class="box">Wind<br><b>${d.current_weather.windspeed||0}</b></div><div class="box">Dir<br><b>${d.winddirection_10m?d.winddirection_10m[0]:0}°</b></div>`;}
+function renderAstronomy(d){const astroBox=document.getElementById('astroBox'); const sr=new Date(d.sunrise[0]).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); const ss=new Date(d.sunset[0]).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); const mp=d.moon_phase[0]; const phase=mp<0.125?"New 🌑":mp<0.375?"First 🌓":mp<0.625?"Full 🌕":mp<0.875?"Last 🌗":"New 🌑"; astroBox.innerHTML=`<div class="box">Sunrise<br><b>${sr}</b></div><div class="box">Sunset<br><b>${ss}</b></div><div class="box">Moon Phase<br><b>${phase}</b></div><div class="box">Moon Index<br><b>${mp.toFixed(2)}</b></div>`;}
 
 // ----- Initial Load -----
 loadWeather(28.6139,77.209,"Delhi");
+
+// ----- PWA: Service Worker -----
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(()=>console.log('SW registered')).catch(err=>console.warn(err));
+}
 </script>
 </body>
 </html>
