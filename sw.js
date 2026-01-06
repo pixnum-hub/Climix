@@ -1,7 +1,23 @@
-const CACHE="climix-v1";
-self.addEventListener("install",e=>{
- e.waitUntil(caches.open(CACHE).then(c=>c.addAll(["./","./index.html"])));
+const CACHE_NAME = 'climix-cache-v1';
+const urlsToCache = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
+  // Add other JS/CSS if any
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache)));
 });
-self.addEventListener("fetch",e=>{
- e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));
+
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(keys => Promise.all(
+    keys.map(key => key !== CACHE_NAME ? caches.delete(key) : null)
+  )));
+});
+
+self.addEventListener('fetch', event => {
+  event.respondWith(caches.match(event.request).then(resp => resp || fetch(event.request)));
 });
