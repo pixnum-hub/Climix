@@ -137,7 +137,7 @@ function formatTime(t){
   return new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
 }
 
-/* Accurate AQI */
+/* AQI */
 function calcAQI(pm){
   if(pm<=12) return pm*4.17
   if(pm<=35.4) return ((pm-12.1)/(35.4-12.1))*49+51
@@ -156,57 +156,86 @@ async function loadWeatherWithCoords(lat,lon){
 
   feel.textContent="Loading data..."
 
-  const w=await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
-    `&current=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,dew_point_2m,visibility,uv_index,wind_speed_10m,wind_direction_10m`+
-    `&hourly=temperature_2m,time`+
-    `&daily=temperature_2m_min,temperature_2m_max,sunrise,sunset,time`+
-    `&timezone=auto`
-  ).then(r=>r.json())
+  try{
 
-  const a=await fetch(
-    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}`+
-    `&hourly=pm2_5,pm10,o3,no2,so2,co`
-  ).then(r=>r.json())
+    const w=await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
+      `&current=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,dew_point_2m,visibility,uv_index,wind_speed_10m,wind_direction_10m`+
+      `&hourly=temperature_2m,time`+
+      `&daily=temperature_2m_min,temperature_2m_max,sunrise,sunset,time`+
+      `&timezone=auto`
+    )
 
-  const c=w.current
-  temp.textContent=round(c.temperature_2m)+"°C"
-  feel.textContent="Feels like "+round(c.apparent_temperature)+"°C"
+    if(!w.ok) throw "Weather API error"
+    const weather=await w.json()
 
-  humidity.textContent=c.relative_humidity_2m
-  pressure.textContent=round(c.pressure_msl)
-  wind.textContent=c.wind_speed_10m
-  windDir.textContent=c.wind_direction_10m
-  uv.textContent=c.uv_index
-  dew.textContent=round(c.dew_point_2m)
-  vis.textContent=round(c.visibility/1000)
-  sunrise.textContent=formatTime(w.daily.sunrise[0])
-  sunset.textContent=formatTime(w.daily.sunset[0])
+    const a=await fetch(
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}`+
+      `&hourly=pm2_5,pm10,o3,no2,so2,co`
+    )
 
-  const pm=a.hourly.pm2_5[0]
-  const aqi=Math.round(calcAQI(pm))
-  aqiValue.textContent="AQI "+aqi
+    if(!a.ok) throw "AQI API error"
+    const air=await a.json()
 
-  if(aqi<=50){aqiCategory.textContent="Good";aqiHealth.textContent="Air quality is excellent"}
-  else if(aqi<=100){aqiCategory.textContent="Moderate";aqiHealth.textContent="Acceptable"}
-  else if(aqi<=150){aqiCategory.textContent="Unhealthy for sensitive"}
-  else{aqiCategory.textContent="Hazardous";aqiHealth.textContent="Avoid outdoor"}
+    const c=weather.current
 
-  pm25.textContent=pm
-  pm10.textContent=a.hourly.pm10[0]
-  o3.textContent=a.hourly.o3[0]
-  no2.textContent=a.hourly.no2[0]
-  so2.textContent=a.hourly.so2[0]
-  co.textContent=a.hourly.co[0]
+    temp.textContent=round(c.temperature_2m)+"°C"
+    feel.textContent="Feels like "+round(c.apparent_temperature)+"°C"
 
-  hourly.innerHTML=w.hourly.time.slice(0,24).map((t,i)=>`
-    <div class="row"><span>${formatTime(t)}</span><span>${round(w.hourly.temperature_2m[i])}°C</span></div>
-  `).join("")
+    humidity.textContent=c.relative_humidity_2m+"%"
+    pressure.textContent=round(c.pressure_msl)
+    wind.textContent=c.wind_speed_10m
+    windDir.textContent=c.wind_direction_10m
+    uv.textContent=c.uv_index
+    dew.textContent=round(c.dew_point_2m)
+    vis.textContent=round(c.visibility/1000)
 
-  daily.innerHTML=w.daily.time.map((d,i)=>`
-    <div class="row"><span>${d}</span>
-    <span>${round(w.daily.temperature_2m_min[i])}° / ${round(w.daily.temperature_2m_max[i])}°</span></div>
-  `).join("")
+    sunrise.textContent=formatTime(weather.daily.sunrise[0])
+    sunset.textContent=formatTime(weather.daily.sunset[0])
+
+    const pm=air.hourly.pm2_5[0]
+    const aqi=Math.round(calcAQI(pm))
+
+    aqiValue.textContent="AQI "+aqi
+
+    aqiCategory.textContent=
+      aqi<=50?"Good":
+      aqi<=100?"Moderate":
+      aqi<=150?"Unhealthy":
+      "Hazardous"
+
+    aqiHealth.textContent=
+      aqi<=100?"Safe outdoor":
+      aqi<=150?"Sensitive groups avoid":
+      "Avoid outdoor"
+
+    pm25.textContent=pm
+    pm10.textContent=air.hourly.pm10[0]
+    o3.textContent=air.hourly.o3[0]
+    no2.textContent=air.hourly.no2[0]
+    so2.textContent=air.hourly.so2[0]
+    co.textContent=air.hourly.co[0]
+
+    hourly.innerHTML=weather.hourly.time.slice(0,24).map((t,i)=>`
+      <div class="row">
+        <span>${formatTime(t)}</span>
+        <span>${round(weather.hourly.temperature_2m[i])}°C</span>
+      </div>
+    `).join("")
+
+    daily.innerHTML=weather.daily.time.map((d,i)=>`
+      <div class="row">
+        <span>${d}</span>
+        <span>${round(weather.daily.temperature_2m_min[i])}° /
+              ${round(weather.daily.temperature_2m_max[i])}°</span>
+      </div>
+    `).join("")
+
+  }
+  catch(e){
+    feel.textContent="Failed to load data"
+    alert("Internet or API error")
+  }
 }
 
 async function loadWeather(){
@@ -216,7 +245,6 @@ async function loadWeather(){
   loadWeatherWithCoords(loc.latitude,loc.longitude)
 }
 
-/* GPS */
 function detectLocation(){
 
   if(!location.protocol.includes("https")){
@@ -233,8 +261,8 @@ function detectLocation(){
     pos=>{
       loadWeatherWithCoords(pos.coords.latitude,pos.coords.longitude)
     },
-    err=>{
-      alert("Location permission denied. Using Delhi.")
+    ()=>{
+      alert("Permission denied. Using Delhi.")
       city.value="New Delhi"
       loadWeather()
     },
