@@ -43,7 +43,7 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 }
 
 .main-temp{text-align:center;font-size:3.6rem;font-weight:800}
-.sub-temp{text-align:center;font-size:1.4rem;opacity:.85}
+.sub-temp{text-align:center;font-size:1.2rem;opacity:.85}
 
 input,button{
   height:46px;border-radius:14px;border:none;font-size:1.05rem
@@ -79,7 +79,7 @@ span{font-weight:600}
 
 <div class="card">
   <div id="temp" class="main-temp">--°C</div>
-  <div id="feel" class="sub-temp">Waiting...</div>
+  <div id="feel" class="sub-temp">Starting...</div>
 </div>
 
 <div class="card">
@@ -132,9 +132,8 @@ span{font-weight:600}
 <script>
 /* SINGLE INSTANCE LOCK */
 if(localStorage.getItem("climix_open")){
-  alert("Climix already running in another tab")
-}
-else{
+  alert("Climix already open in another tab")
+}else{
   localStorage.setItem("climix_open","1")
 }
 window.addEventListener("beforeunload",()=>{
@@ -166,14 +165,6 @@ async function getCoords(city){
   return j.results?.[0]
 }
 
-/* POPUP */
-function showLocationPopup(){
-  if(localStorage.getItem("lat")) return
-  if(confirm("Enable location for live weather?")){
-    detectLocation()
-  }
-}
-
 /* SAVE */
 function saveLocation(lat,lon,name){
   localStorage.setItem("lat",lat)
@@ -193,8 +184,21 @@ function loadSavedLocation(){
   return false
 }
 
+/* FALLBACK */
+function fallbackCity(){
+  if(loadSavedLocation()) return
+  city.value="New Delhi"
+  loadWeather()
+}
+
 async function loadWeatherWithCoords(lat,lon,cityName=""){
+
   feel.textContent="Loading data..."
+
+  const apiTimer=setTimeout(()=>{
+    feel.textContent="API slow... retrying"
+    detectLocation()
+  },12000)
 
   try{
     const w=await fetch(
@@ -209,6 +213,8 @@ async function loadWeatherWithCoords(lat,lon,cityName=""){
       `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}`+
       `&hourly=pm2_5,pm10,o3,no2,so2,co`
     ).then(r=>r.json())
+
+    clearTimeout(apiTimer)
 
     const c=w.current
 
@@ -276,13 +282,24 @@ async function loadWeatherWithCoords(lat,lon,cityName=""){
   }
 }
 
+/* LOCATION */
 function detectLocation(){
 
   feel.textContent="Requesting location..."
 
+  let timed=false
+  const timer=setTimeout(()=>{
+    timed=true
+    feel.textContent="Location timeout. Using default"
+    fallbackCity()
+  },15000)
+
   navigator.geolocation.getCurrentPosition(
 
     async pos=>{
+      if(timed) return
+      clearTimeout(timer)
+
       const lat=pos.coords.latitude
       const lon=pos.coords.longitude
 
@@ -297,14 +314,12 @@ function detectLocation(){
     },
 
     ()=>{
-      alert("Location blocked")
-      if(!loadSavedLocation()){
-        city.value="New Delhi"
-        loadWeather()
-      }
+      clearTimeout(timer)
+      feel.textContent="Permission denied. Using default"
+      fallbackCity()
     },
 
-    {enableHighAccuracy:true,timeout:20000}
+    {enableHighAccuracy:true,timeout:10000}
   )
 }
 
@@ -320,9 +335,8 @@ async function loadWeather(){
 window.onload=()=>{
   if(started) return
   started=true
-
   if(!loadSavedLocation()){
-    showLocationPopup()
+    detectLocation()
   }
 }
 
