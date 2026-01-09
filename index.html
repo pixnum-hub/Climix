@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Naviser Ultimate</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="./manifest.json">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<style>
+body, html{margin:0;padding:0;width:100%;height:100%;background:#0b1220;color:#fff;font-family:system-ui;overflow:hidden;}
+#app{max-width:480px;margin:auto;width:100%;height:100%;display:flex;flex-direction:column;position:relative;}
+#map{height:60vh;border-radius:16px;flex-shrink:0;}
+.panel{background:rgba(255,255,255,.1);backdrop-filter:blur(10px);border-radius:14px;padding:8px;margin-top:6px;font-size:13px;overflow:auto;max-height:calc(40vh-16px);}
+button, select, input{width:100%;margin-top:4px;padding:8px;border-radius:10px;border:none;background:#1e293b;color:#fff;}
+footer{text-align:center;font-size:11px;opacity:.6;margin-top:8px;}
+#app.fullscreen{width:100vw;height:100vh;padding:0;}
+#app.fullscreen #map{height:100%;border-radius:0;}
+#northArrow{position:fixed;top:14px;left:14px;width:42px;height:42px;border-radius:50%;background:#1e293b;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:99999;pointer-events:none;transition:opacity 0.3s;}
+#floatFS{position:fixed;bottom:20px;right:16px;width:52px;height:52px;border-radius:50%;background:#1e293b;border:none;color:#fff;font-size:20px;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,.5);opacity:0.5;transition:opacity 0.3s;cursor:pointer;}
+#floatFS:hover,#floatFS:active{opacity:1;}
+#searchInput{background:#1e293b;color:#fff;font-size:14px;margin-bottom:4px;}
+#searchResults{background:#1e293b;max-height:120px;overflow:auto;border-radius:10px;margin-top:2px;padding:2px;font-size:12px;}
+#searchResults div{padding:4px;cursor:pointer;}
+#searchResults div:hover{background:rgba(255,255,255,0.2);}
+</style>
+</head>
+<body>
+
+<div id="northArrow">N</div>
+<div id="floatFS">⛶</div>
+
+<div id="app">
+<div id="map"></div>
+
+<div class="panel">
+<input type="text" id="searchInput" placeholder="🔍 Search location">
+<div id="searchResults"></div>
+
+<select id="mapStyle">
+<option value="street">Street</option>
+<option value="sat">Satellite</option>
+<option value="terrain">Terrain</option>
+<option value="hybrid">Hybrid</option>
+</select>
+
+<button id="gpsBtn">📡 Enable GPS</button>
+<button id="followBtn">📍 Follow: ON</button>
+
+<div id="gpsStatus">Waiting for GPS…</div>
+<div id="loc"></div>
+<div id="speed"></div>
+<div id="heading"></div>
+
+<button id="addMarkerBtn">➕ Add Marker</button>
+<button id="removeMarkerBtn">➖ Remove Marker</button>
+<button id="dirBtn">🎯 Direction to Marker</button>
+<div id="dirInfo"></div>
+
+<button id="startPoly">📐 Start Area</button>
+<button id="clearPoly">❌ Clear Area</button>
+
+<div id="distance"></div>
+<div id="area"></div>
+
+<hr>
+
+<button id="addWpBtn">📍 Add Waypoint</button>
+<button id="clearWpBtn">❌ Clear Waypoints</button>
+<button id="navBtn">🧭 Start Navigation</button>
+
+<div id="navArrow" style="font-size:30px;text-align:center">⬆</div>
+<div id="remainDist"></div>
+<div id="wpInfo"></div>
+
+</div>
+<footer>© Manik Roy 2026</footer>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-geometryutil"></script>
+<script>
+// --- MAP & LAYERS ---
+let map=L.map('map',{zoomControl:true}).setView([20,78],5);
+map.zoomControl.setPosition('topright');
+
+let layers={
+street:L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}),
+sat:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}),
+terrain:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17})
+};
+let hybridBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19});
+let hybridLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',{
+  subdomains:'abcd', maxZoom:20, opacity:0.7, attribution:'&copy; OpenStreetMap &copy; Carto'
+});
+let hybrid = L.layerGroup([hybridBase, hybridLabels]);
+layers.hybrid = hybrid;
+
+layers.street.addTo(map);
+map.on('zoomend', ()=>{ if(map.hasLayer(hybridLabels)) hybridLabels.setOpacity(map.getZoom()>12?0.7:0); });
+
+// --- VARIABLES ---
+let userMarker,watchId,follow=true;
+let markers=[],line,polyPoints=[],poly;
+let waypoints=[],navActive=false,currentWP=0;
+let headingAngle=0;
+
+// --- MAP SWITCH ---
+mapStyle.onchange=()=>{ map.eachLayer(l=>map.removeLayer(l));
+if(mapStyle.value==="hybrid") layers.hybrid.addTo(map);
+else layers[mapStyle.value].addTo(map);
+if(userMarker) userMarker.addTo(map);
+if(line) line.addTo(map);
+if(poly) poly.addTo(map);
+};
+
+// --- FOLLOW ---
+followBtn.onclick=()=>{follow=!follow; followBtn.innerText="📍 Follow: "+(follow?"ON":"OFF");}
+map.on('dragstart zoomstart',()=>{follow=false; followBtn.innerText="📍 Follow: OFF";});
+
+// --- GPS ---
+gpsBtn.onclick=startGPS;
+function startGPS(){
+gpsStatus.innerText="📡 Searching…"; gpsBtn.style.display="none";
+watchId=navigator.geolocation.watchPosition(pos=>{
+let c=pos.coords;
+gpsStatus.innerText="✅ GPS Active";
+if(!userMarker){userMarker=L.marker([c.latitude,c.longitude]).addTo(map); if(follow) map.setView([c.latitude,c.longitude],16);}
+else{userMarker.setLatLng([c.latitude,c.longitude]); if(follow) map.panTo([c.latitude,c.longitude]);}
+loc.innerText=`📍 ${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)}`;
+speed.innerText=`🚀 Speed: ${(c.speed?c.speed*3.6:0).toFixed(1)} km/h`;
+updateNav(c.latitude,c.longitude);
+},err=>{gpsStatus.innerText="❌ GPS Denied"; gpsBtn.style.display="block";},{enableHighAccuracy:true});
+}
+
+// --- FULLSCREEN ---
+const floatFS=document.getElementById("floatFS");
+floatFS.onclick=toggleFullscreen;
+function toggleFullscreen(){
+if(!document.fullscreenElement){
+  app.requestFullscreen({navigationUI:"hide"}).catch(()=>{});
+  app.classList.add("fullscreen"); floatFS.innerText="❎";
+}else{exitFullscreen();}
+}
+function exitFullscreen(){
+  if(document.fullscreenElement){
+    document.exitFullscreen().then(()=>app.classList.remove("fullscreen"));
+    floatFS.innerText="⛶";
+  }
+}
+
+// --- MOBILE FRIENDLY EXIT ---
+let startY=null,longPressTimer;
+map.getContainer().addEventListener('touchstart', e=>{
+  if(e.touches.length===1) startY=e.touches[0].clientY;
+  longPressTimer = setTimeout(exitFullscreen, 1000);
+});
+map.getContainer().addEventListener('touchend', e=>{
+  if(startY){
+    let endY = e.changedTouches[0].clientY;
+    if(endY - startY > 100) exitFullscreen();
+    startY=null;
+  }
+  clearTimeout(longPressTimer);
+});
+if(/Mobi|Android/i.test(navigator.userAgent)){ floatFS.style.opacity="1"; }
+
+// --- DESKTOP AUTO FADE ---
+if(!/Mobi|Android/i.test(navigator.userAgent)){
+  let hideTimeout;
+  function autoFadeFS(){ floatFS.style.opacity="1"; document.getElementById('northArrow').style.opacity="1";
+  clearTimeout(hideTimeout); hideTimeout=setTimeout(()=>{ floatFS.style.opacity="0.5"; document.getElementById('northArrow').style.opacity="0.5";},3000);}
+  document.addEventListener("mousemove", autoFadeFS);
+  document.addEventListener("touchstart", autoFadeFS);
+}
+
+// --- COMPASS ---
+if(window.DeviceOrientationEvent){
+  window.addEventListener('deviceorientation', e=>{
+    if(e.alpha!=null){ headingAngle=360-e.alpha;
+      document.getElementById('northArrow').style.transform=`rotate(${headingAngle}deg)`;
+      document.getElementById('heading').innerText=`Heading: ${Math.round(headingAngle)}°`;
+    }
+  });
+}
+
+// --- MARKERS & POLYGON ---
+addMarkerBtn.onclick=()=>{ let m=L.marker(map.getCenter(),{draggable:true}).addTo(map); m.on('drag',updateMetrics); markers.push(m); updateMetrics();}
+removeMarkerBtn.onclick=()=>{ if(markers.length){map.removeLayer(markers.pop()); updateMetrics();} }
+startPoly.onclick=()=>{ polyPoints=markers.map(m=>m.getLatLng()); if(poly) map.removeLayer(poly); poly=L.polygon(polyPoints).addTo(map); updateMetrics();}
+clearPoly.onclick=()=>{ if(poly) map.removeLayer(poly); poly=null; area.innerText=''; distance.innerText='';}
+function updateMetrics(){
+  if(line) map.removeLayer(line);
+  if(markers.length>1){ line=L.polyline(markers.map(m=>m.getLatLng())).addTo(map);
+    let d=0; for(let i=1;i<markers.length;i++) d+=markers[i-1].getLatLng().distanceTo(markers[i].getLatLng());
+    distance.innerText=`Distance: ${(d/1000).toFixed(2)} km`;
+  }
+  if(polyPoints.length>2){ let a=L.GeometryUtil.geodesicArea(polyPoints); area.innerText=`Area: ${(a/1e6).toFixed(3)} km²`; }
+}
+
+// --- DIRECTION ---
+dirBtn.onclick=()=>{
+if(!markers.length) return alert('Add a marker first!');
+let u=userMarker?userMarker.getLatLng():{lat:0,lng:0};
+let m=markers[0].getLatLng();
+let angle = Math.atan2(m.lng-u.lng,m.lat-u.lat)*180/Math.PI;
+dirInfo.innerText=`Direction: ${Math.round(angle)}°`;
+}
+
+// --- WAYPOINTS & NAVIGATION ---
+addWpBtn.onclick=()=>{ if(!userMarker) return; waypoints.push(userMarker.getLatLng()); wpInfo.innerText=`Waypoints: ${waypoints.length}`;}
+clearWpBtn.onclick=()=>{ waypoints=[]; wpInfo.innerText='Waypoints cleared'; navActive=false; navArrow.innerText='⬆'; remainDist.innerText=''; currentWP=0;}
+navBtn.onclick=()=>{ if(!waypoints.length) return; navActive=true; currentWP=0;}
+
+// --- NAV ARROW ---
+function updateNav(lat,lng){
+  if(!navActive || !waypoints.length) return;
+  let wp=waypoints[currentWP];
+  let d = map.distance([lat,lng], wp);
+  remainDist.innerText=`Distance to WP${currentWP+1}: ${(d/1000).toFixed(2)} km`;
+  let angle = Math.atan2(wp.lng-lng, wp.lat-lat)*180/Math.PI;
+  document.getElementById('navArrow').style.transform=`rotate(${angle-headingAngle}deg)`;
+  if(d<10){currentWP++; if(currentWP>=waypoints.length){navActive=false; document.getElementById('navArrow').innerText='✅'; remainDist.innerText='Arrived';}}
+}
+setInterval(()=>{ if(userMarker){ let p=userMarker.getLatLng(); updateNav(p.lat,p.lng); }},500);
+
+// --- LOCATION SEARCH ---
+searchInput.addEventListener("input",()=>{
+  let q=searchInput.value.trim(); if(!q){searchResults.innerHTML=''; return;}
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
+    .then(res=>res.json()).then(data=>{
+      searchResults.innerHTML=''; data.slice(0,5).forEach(loc=>{
+        let div=document.createElement('div'); div.innerText=loc.display_name;
+        div.onclick=()=>{ map.setView([loc.lat, loc.lon],16); searchResults.innerHTML=''; };
+        searchResults.appendChild(div);
+      });
+    });
+});
+
+// --- SERVICE WORKER ---
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js')
+  .then(()=>console.log("SW Registered"))
+  .catch(err=>console.log("SW registration failed:",err));
+}
+
+// --- ADD TO HOME SCREEN ---
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  deferredPrompt = e;
+  floatFS.innerText="📥"; // Install icon
+  floatFS.onclick = async ()=>{
+    floatFS.innerText="⛶"; 
+    deferredPrompt.prompt();
+    let choice = await deferredPrompt.userChoice;
+    console.log(choice.outcome);
+    deferredPrompt=null;
+  };
+});
+</script>
+</body>
+</html>
