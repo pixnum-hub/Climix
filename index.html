@@ -2,233 +2,261 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<title>Naviser Ultimate</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Climix</title>
-
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#000000">
-
+<link rel="manifest" href="./manifest.json">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <style>
-*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui,-apple-system}
-body{background:#000;color:#fff;display:flex;justify-content:center}
-body.oled{background:#000;color:#eaeaea}
-:root{--aqi-tint:rgba(0,0,0,0)}
-
-.app-frame{
-  width:100%;
-  max-width:420px;
-  padding:16px;
-  background:linear-gradient(180deg,var(--aqi-tint),rgba(0,0,0,.95));
-}
-
-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-
-.toggle{
-  width:38px;height:38px;border-radius:50%;
-  border:none;background:#111;color:#fff;font-size:18px
-}
-
-.card{
-  background:rgba(255,255,255,.07);
-  backdrop-filter:blur(14px);
-  border-radius:18px;
-  padding:18px;
-  margin-bottom:14px;
-}
-
-.card h2{
-  font-size:1.35rem;
-  margin-bottom:10px;
-  border-bottom:1px solid rgba(255,255,255,.15);
-  padding-bottom:6px
-}
-
-.main-temp{text-align:center;font-size:3.6rem;font-weight:800}
-.sub-temp{text-align:center;font-size:1.4rem;opacity:.85}
-
-input,button{
-  height:46px;border-radius:14px;border:none;font-size:1.05rem
-}
-input{width:55%;padding:0 12px}
-button{background:#222;color:#fff;padding:0 12px}
-
-.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.list .row{
-  display:flex;justify-content:space-between;
-  padding:8px 12px;border-radius:12px;
-  background:rgba(255,255,255,.06);margin-bottom:6px
-}
-
-.aqi-big{text-align:center;font-size:2.6rem;font-weight:800}
-span{font-weight:600}
+body, html{margin:0;padding:0;width:100%;height:100%;background:#0b1220;color:#fff;font-family:system-ui;overflow:hidden;}
+#app{max-width:480px;margin:auto;width:100%;height:100%;display:flex;flex-direction:column;position:relative;}
+#map{height:60vh;border-radius:16px;flex-shrink:0;}
+.panel{background:rgba(255,255,255,.1);backdrop-filter:blur(10px);border-radius:14px;padding:8px;margin-top:6px;font-size:13px;overflow:auto;max-height:calc(40vh-16px);}
+button, select, input{width:100%;margin-top:4px;padding:8px;border-radius:10px;border:none;background:#1e293b;color:#fff;}
+footer{text-align:center;font-size:11px;opacity:.6;margin-top:8px;}
+#app.fullscreen{width:100vw;height:100vh;padding:0;}
+#app.fullscreen #map{height:100%;border-radius:0;}
+#northArrow{position:fixed;top:14px;left:14px;width:42px;height:42px;border-radius:50%;background:#1e293b;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:99999;pointer-events:none;transition:opacity 0.3s;}
+#floatFS{position:fixed;bottom:20px;right:16px;width:52px;height:52px;border-radius:50%;background:#1e293b;border:none;color:#fff;font-size:20px;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,.5);opacity:0.5;transition:opacity 0.3s;cursor:pointer;}
+#floatFS:hover,#floatFS:active{opacity:1;}
+#searchInput{background:#1e293b;color:#fff;font-size:14px;margin-bottom:4px;}
+#searchResults{background:#1e293b;max-height:120px;overflow:auto;border-radius:10px;margin-top:2px;padding:2px;font-size:12px;}
+#searchResults div{padding:4px;cursor:pointer;}
+#searchResults div:hover{background:rgba(255,255,255,0.2);}
 </style>
 </head>
-
 <body>
-<div class="app-frame">
 
-<header>
-  <h1>Climix</h1>
-  <button class="toggle" onclick="toggleDark()">🌙</button>
-</header>
+<div id="northArrow">N</div>
+<div id="floatFS">⛶</div>
 
-<div class="card">
-  <input id="city" placeholder="Enter city">
-  <button onclick="loadWeather()">Search</button>
-  <button onclick="detectLocation()">📍</button>
-</div>
+<div id="app">
+<div id="map"></div>
 
-<div class="card">
-  <div id="temp" class="main-temp">--°C</div>
-  <div id="feel" class="sub-temp">Feels like --°C</div>
-</div>
+<div class="panel">
+<input type="text" id="searchInput" placeholder="🔍 Search location">
+<div id="searchResults"></div>
 
-<div class="card">
-<h2>Location Conditions</h2>
-<div class="grid-2">
-  <div>Humidity <span id="humidity">--%</span></div>
-  <div>Pressure <span id="pressure">-- hPa</span></div>
-  <div>Wind <span id="wind">-- km/h</span></div>
-  <div>Direction <span id="windDir">--°</span></div>
-  <div>Visibility <span id="vis">-- km</span></div>
-  <div>UV <span id="uv">--</span></div>
-  <div>Dew <span id="dew">--°C</span></div>
-  <div>Sunrise <span id="sunrise">--</span></div>
-  <div>Sunset <span id="sunset">--</span></div>
-</div>
-</div>
+<select id="mapStyle">
+<option value="street">Street</option>
+<option value="sat">Satellite</option>
+<option value="terrain">Terrain</option>
+<option value="hybrid">Hybrid</option>
+</select>
 
-<div class="card">
-<h2>AQI Details</h2>
-<div class="aqi-big" id="aqiValue">AQI --</div>
-<div id="aqiCategory" style="text-align:center"></div>
-<div id="aqiHealth" style="text-align:center;margin-bottom:10px"></div>
+<button id="gpsBtn">📡 Enable GPS</button>
+<button id="followBtn">📍 Follow: ON</button>
 
-<div class="grid-2">
-  <div>PM2.5 <span id="pm25">--</span></div>
-  <div>PM10 <span id="pm10">--</span></div>
-  <div>O₃ <span id="o3">--</span></div>
-  <div>NO₂ <span id="no2">--</span></div>
-  <div>SO₂ <span id="so2">--</span></div>
-  <div>CO <span id="co">--</span></div>
-</div>
-</div>
+<div id="gpsStatus">Waiting for GPS…</div>
+<div id="loc"></div>
+<div id="speed"></div>
+<div id="heading"></div>
 
-<div class="card">
-<h2>Next 24 Hours</h2>
-<div id="hourly" class="list"></div>
-</div>
+<button id="addMarkerBtn">➕ Add Marker</button>
+<button id="removeMarkerBtn">➖ Remove Marker</button>
+<button id="dirBtn">🎯 Direction to Marker</button>
+<div id="dirInfo"></div>
 
-<div class="card">
-<h2>7-Day Forecast</h2>
-<div id="daily" class="list"></div>
-</div>
+<button id="startPoly">📐 Start Area</button>
+<button id="clearPoly">❌ Clear Area</button>
 
-<div class="card" style="text-align:center;font-size:.85rem">
-© Manik Roy 2025. All Rights Reserved.
-</div>
+<div id="distance"></div>
+<div id="area"></div>
+
+<hr>
+
+<button id="addWpBtn">📍 Add Waypoint</button>
+<button id="clearWpBtn">❌ Clear Waypoints</button>
+<button id="navBtn">🧭 Start Navigation</button>
+
+<div id="navArrow" style="font-size:30px;text-align:center">⬆</div>
+<div id="remainDist"></div>
+<div id="wpInfo"></div>
 
 </div>
+<footer>© Manik Roy 2026</footer>
+</div>
 
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-geometryutil"></script>
 <script>
-function toggleDark(){document.body.classList.toggle("oled")}
-const round=v=>Math.round(v)
+// --- MAP & LAYERS ---
+let map=L.map('map',{zoomControl:true}).setView([20,78],5);
+map.zoomControl.setPosition('topright');
 
-function formatTime(t){
-  return new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
+let layers={
+street:L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}),
+sat:L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}),
+terrain:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{maxZoom:17})
+};
+let hybridBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19});
+let hybridLabels = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',{
+  subdomains:'abcd', maxZoom:20, opacity:0.7, attribution:'&copy; OpenStreetMap &copy; Carto'
+});
+let hybrid = L.layerGroup([hybridBase, hybridLabels]);
+layers.hybrid = hybrid;
+
+layers.street.addTo(map);
+map.on('zoomend', ()=>{ if(map.hasLayer(hybridLabels)) hybridLabels.setOpacity(map.getZoom()>12?0.7:0); });
+
+// --- VARIABLES ---
+let userMarker,watchId,follow=true;
+let markers=[],line,polyPoints=[],poly;
+let waypoints=[],navActive=false,currentWP=0;
+let headingAngle=0;
+
+// --- MAP SWITCH ---
+mapStyle.onchange=()=>{ map.eachLayer(l=>map.removeLayer(l));
+if(mapStyle.value==="hybrid") layers.hybrid.addTo(map);
+else layers[mapStyle.value].addTo(map);
+if(userMarker) userMarker.addTo(map);
+if(line) line.addTo(map);
+if(poly) poly.addTo(map);
+};
+
+// --- FOLLOW ---
+followBtn.onclick=()=>{follow=!follow; followBtn.innerText="📍 Follow: "+(follow?"ON":"OFF");}
+map.on('dragstart zoomstart',()=>{follow=false; followBtn.innerText="📍 Follow: OFF";});
+
+// --- GPS ---
+gpsBtn.onclick=startGPS;
+function startGPS(){
+gpsStatus.innerText="📡 Searching…"; gpsBtn.style.display="none";
+watchId=navigator.geolocation.watchPosition(pos=>{
+let c=pos.coords;
+gpsStatus.innerText="✅ GPS Active";
+if(!userMarker){userMarker=L.marker([c.latitude,c.longitude]).addTo(map); if(follow) map.setView([c.latitude,c.longitude],16);}
+else{userMarker.setLatLng([c.latitude,c.longitude]); if(follow) map.panTo([c.latitude,c.longitude]);}
+loc.innerText=`📍 ${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)}`;
+speed.innerText=`🚀 Speed: ${(c.speed?c.speed*3.6:0).toFixed(1)} km/h`;
+updateNav(c.latitude,c.longitude);
+},err=>{gpsStatus.innerText="❌ GPS Denied"; gpsBtn.style.display="block";},{enableHighAccuracy:true});
 }
 
-function calcAQI(pm){
-  const bp=[[0,12,0,50],[12.1,35.4,51,100],[35.5,55.4,101,150],[55.5,150.4,151,200],[150.5,250.4,201,300]]
-  for(const [cl,ch,il,ih] of bp){
-    if(pm>=cl&&pm<=ch) return Math.round(((ih-il)/(ch-cl))*(pm-cl)+il)
+// --- FULLSCREEN ---
+const floatFS=document.getElementById("floatFS");
+floatFS.onclick=toggleFullscreen;
+function toggleFullscreen(){
+if(!document.fullscreenElement){
+  app.requestFullscreen({navigationUI:"hide"}).catch(()=>{});
+  app.classList.add("fullscreen"); floatFS.innerText="❎";
+}else{exitFullscreen();}
+}
+function exitFullscreen(){
+  if(document.fullscreenElement){
+    document.exitFullscreen().then(()=>app.classList.remove("fullscreen"));
+    floatFS.innerText="⛶";
   }
-  return 300
 }
 
-async function getCoords(city){
-  const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`)
-  const j=await r.json()
-  return j.results?.[0]
+// --- MOBILE FRIENDLY EXIT ---
+let startY=null,longPressTimer;
+map.getContainer().addEventListener('touchstart', e=>{
+  if(e.touches.length===1) startY=e.touches[0].clientY;
+  longPressTimer = setTimeout(exitFullscreen, 1000);
+});
+map.getContainer().addEventListener('touchend', e=>{
+  if(startY){
+    let endY = e.changedTouches[0].clientY;
+    if(endY - startY > 100) exitFullscreen();
+    startY=null;
+  }
+  clearTimeout(longPressTimer);
+});
+if(/Mobi|Android/i.test(navigator.userAgent)){ floatFS.style.opacity="1"; }
+
+// --- DESKTOP AUTO FADE ---
+if(!/Mobi|Android/i.test(navigator.userAgent)){
+  let hideTimeout;
+  function autoFadeFS(){ floatFS.style.opacity="1"; document.getElementById('northArrow').style.opacity="1";
+  clearTimeout(hideTimeout); hideTimeout=setTimeout(()=>{ floatFS.style.opacity="0.5"; document.getElementById('northArrow').style.opacity="0.5";},3000);}
+  document.addEventListener("mousemove", autoFadeFS);
+  document.addEventListener("touchstart", autoFadeFS);
 }
 
-async function loadWeatherWithCoords(lat,lon){
-  const w=await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
-    `&current=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,dew_point_2m,visibility,uv_index,wind_speed_10m,wind_direction_10m`+
-    `&hourly=temperature_2m,time`+
-    `&daily=temperature_2m_min,temperature_2m_max,sunrise,sunset,time`+
-    `&timezone=auto`
-  ).then(r=>r.json())
-
-  const a=await fetch(
-    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}`+
-    `&hourly=pm2_5,pm10,o3,no2,so2,co`
-  ).then(r=>r.json())
-
-  const c=w.current
-  temp.textContent=round(c.temperature_2m)+"°C"
-  feel.textContent="Feels like "+round(c.apparent_temperature)+"°C"
-  humidity.textContent=c.relative_humidity_2m
-  pressure.textContent=round(c.pressure_msl)
-  wind.textContent=c.wind_speed_10m
-  windDir.textContent=c.wind_direction_10m
-  uv.textContent=c.uv_index
-  dew.textContent=round(c.dew_point_2m)
-  vis.textContent=round(c.visibility/1000)
-  sunrise.textContent=formatTime(w.daily.sunrise[0])
-  sunset.textContent=formatTime(w.daily.sunset[0])
-
-  const pm=a.hourly.pm2_5[0]
-  const aqi=calcAQI(pm)
-  aqiValue.textContent="AQI "+aqi
-  aqiCategory.textContent=aqi<=50?"Good":aqi<=100?"Moderate":aqi<=150?"Unhealthy":"Hazardous"
-  aqiHealth.textContent=aqi<=100?"Safe outdoor activity":"Limit outdoor exposure"
-
-  pm25.textContent=pm
-  pm10.textContent=a.hourly.pm10[0]
-  o3.textContent=a.hourly.o3[0]
-  no2.textContent=a.hourly.no2[0]
-  so2.textContent=a.hourly.so2[0]
-  co.textContent=a.hourly.co[0]
-
-  hourly.innerHTML=w.hourly.time.slice(0,24).map((t,i)=>`
-    <div class="row"><span>${formatTime(t)}</span><span>${round(w.hourly.temperature_2m[i])}°C</span></div>
-  `).join("")
-
-  daily.innerHTML=w.daily.time.map((d,i)=>`
-    <div class="row"><span>${d}</span><span>${round(w.daily.temperature_2m_min[i])}° / ${round(w.daily.temperature_2m_max[i])}°</span></div>
-  `).join("")
+// --- COMPASS ---
+if(window.DeviceOrientationEvent){
+  window.addEventListener('deviceorientation', e=>{
+    if(e.alpha!=null){ headingAngle=360-e.alpha;
+      document.getElementById('northArrow').style.transform=`rotate(${headingAngle}deg)`;
+      document.getElementById('heading').innerText=`Heading: ${Math.round(headingAngle)}°`;
+    }
+  });
 }
 
-async function loadWeather(){
-  const cityName=city.value.trim()
-  if(!cityName)return alert("Enter city")
-  const loc=await getCoords(cityName)
-  if(!loc)return alert("City not found")
-  loadWeatherWithCoords(loc.latitude,loc.longitude)
+// --- MARKERS & POLYGON ---
+addMarkerBtn.onclick=()=>{ let m=L.marker(map.getCenter(),{draggable:true}).addTo(map); m.on('drag',updateMetrics); markers.push(m); updateMetrics();}
+removeMarkerBtn.onclick=()=>{ if(markers.length){map.removeLayer(markers.pop()); updateMetrics();} }
+startPoly.onclick=()=>{ polyPoints=markers.map(m=>m.getLatLng()); if(poly) map.removeLayer(poly); poly=L.polygon(polyPoints).addTo(map); updateMetrics();}
+clearPoly.onclick=()=>{ if(poly) map.removeLayer(poly); poly=null; area.innerText=''; distance.innerText='';}
+function updateMetrics(){
+  if(line) map.removeLayer(line);
+  if(markers.length>1){ line=L.polyline(markers.map(m=>m.getLatLng())).addTo(map);
+    let d=0; for(let i=1;i<markers.length;i++) d+=markers[i-1].getLatLng().distanceTo(markers[i].getLatLng());
+    distance.innerText=`Distance: ${(d/1000).toFixed(2)} km`;
+  }
+  if(polyPoints.length>2){ let a=L.GeometryUtil.geodesicArea(polyPoints); area.innerText=`Area: ${(a/1e6).toFixed(3)} km²`; }
 }
 
-function fallbackCity(){
-  city.value="New Delhi"
-  loadWeather()
+// --- DIRECTION ---
+dirBtn.onclick=()=>{
+if(!markers.length) return alert('Add a marker first!');
+let u=userMarker?userMarker.getLatLng():{lat:0,lng:0};
+let m=markers[0].getLatLng();
+let angle = Math.atan2(m.lng-u.lng,m.lat-u.lat)*180/Math.PI;
+dirInfo.innerText=`Direction: ${Math.round(angle)}°`;
 }
 
-function detectLocation(){
-  if(!("geolocation" in navigator)){fallbackCity();return}
-  navigator.geolocation.getCurrentPosition(
-    p=>loadWeatherWithCoords(p.coords.latitude,p.coords.longitude),
-    ()=>fallbackCity(),
-    {enableHighAccuracy:true,timeout:15000}
-  )
+// --- WAYPOINTS & NAVIGATION ---
+addWpBtn.onclick=()=>{ if(!userMarker) return; waypoints.push(userMarker.getLatLng()); wpInfo.innerText=`Waypoints: ${waypoints.length}`;}
+clearWpBtn.onclick=()=>{ waypoints=[]; wpInfo.innerText='Waypoints cleared'; navActive=false; navArrow.innerText='⬆'; remainDist.innerText=''; currentWP=0;}
+navBtn.onclick=()=>{ if(!waypoints.length) return; navActive=true; currentWP=0;}
+
+// --- NAV ARROW ---
+function updateNav(lat,lng){
+  if(!navActive || !waypoints.length) return;
+  let wp=waypoints[currentWP];
+  let d = map.distance([lat,lng], wp);
+  remainDist.innerText=`Distance to WP${currentWP+1}: ${(d/1000).toFixed(2)} km`;
+  let angle = Math.atan2(wp.lng-lng, wp.lat-lat)*180/Math.PI;
+  document.getElementById('navArrow').style.transform=`rotate(${angle-headingAngle}deg)`;
+  if(d<10){currentWP++; if(currentWP>=waypoints.length){navActive=false; document.getElementById('navArrow').innerText='✅'; remainDist.innerText='Arrived';}}
+}
+setInterval(()=>{ if(userMarker){ let p=userMarker.getLatLng(); updateNav(p.lat,p.lng); }},500);
+
+// --- LOCATION SEARCH ---
+searchInput.addEventListener("input",()=>{
+  let q=searchInput.value.trim(); if(!q){searchResults.innerHTML=''; return;}
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}`)
+    .then(res=>res.json()).then(data=>{
+      searchResults.innerHTML=''; data.slice(0,5).forEach(loc=>{
+        let div=document.createElement('div'); div.innerText=loc.display_name;
+        div.onclick=()=>{ map.setView([loc.lat, loc.lon],16); searchResults.innerHTML=''; };
+        searchResults.appendChild(div);
+      });
+    });
+});
+
+// --- SERVICE WORKER ---
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js')
+  .then(()=>console.log("SW Registered"))
+  .catch(err=>console.log("SW registration failed:",err));
 }
 
-window.addEventListener("load",detectLocation)
-
-if("serviceWorker" in navigator){
-  navigator.serviceWorker.register("sw.js")
-}
+// --- ADD TO HOME SCREEN ---
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault();
+  deferredPrompt = e;
+  floatFS.innerText="📥"; // Install icon
+  floatFS.onclick = async ()=>{
+    floatFS.innerText="⛶"; 
+    deferredPrompt.prompt();
+    let choice = await deferredPrompt.userChoice;
+    console.log(choice.outcome);
+    deferredPrompt=null;
+  };
+});
 </script>
-
 </body>
 </html>
