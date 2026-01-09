@@ -132,6 +132,7 @@ span{font-weight:600}
 <script>
 function toggleDark(){document.body.classList.toggle("oled")}
 const round=v=>Math.round(v)
+let autoRefresh=null
 
 function formatTime(t){
   return new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
@@ -152,12 +153,38 @@ async function getCoords(city){
   return j.results?.[0]
 }
 
-async function loadWeatherWithCoords(lat,lon){
+/* SHOW POPUP */
+function showLocationPopup(){
+  if(localStorage.getItem("lat")) return
+  if(confirm("📍 Enable location for live weather?")){
+    detectLocation()
+  }
+}
+
+/* SAVE LOCATION */
+function saveLocation(lat,lon,city){
+  localStorage.setItem("lat",lat)
+  localStorage.setItem("lon",lon)
+  localStorage.setItem("cityName",city)
+}
+
+/* LOAD SAVED */
+function loadSavedLocation(){
+  const lat=localStorage.getItem("lat")
+  const lon=localStorage.getItem("lon")
+  const city=localStorage.getItem("cityName")
+  if(lat && lon){
+    loadWeatherWithCoords(lat,lon,city)
+    return true
+  }
+  return false
+}
+
+async function loadWeatherWithCoords(lat,lon,cityLabel=""){
 
   feel.textContent="Loading data..."
 
   try{
-
     const w=await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
       `&current=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,dew_point_2m,visibility,uv_index,wind_speed_10m,wind_direction_10m`+
@@ -165,7 +192,6 @@ async function loadWeatherWithCoords(lat,lon){
       `&daily=temperature_2m_min,temperature_2m_max,sunrise,sunset,time`+
       `&timezone=auto`
     )
-
     if(!w.ok) throw "Weather API error"
     const weather=await w.json()
 
@@ -173,7 +199,6 @@ async function loadWeatherWithCoords(lat,lon){
       `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}`+
       `&hourly=pm2_5,pm10,o3,no2,so2,co`
     )
-
     if(!a.ok) throw "AQI API error"
     const air=await a.json()
 
@@ -193,11 +218,11 @@ async function loadWeatherWithCoords(lat,lon){
     sunrise.textContent=formatTime(weather.daily.sunrise[0])
     sunset.textContent=formatTime(weather.daily.sunset[0])
 
+    /* AQI */
     const pm=air.hourly.pm2_5[0]
     const aqi=Math.round(calcAQI(pm))
 
     aqiValue.textContent="AQI "+aqi
-
     aqiCategory.textContent=
       aqi<=50?"Good":
       aqi<=100?"Moderate":
@@ -231,46 +256,78 @@ async function loadWeatherWithCoords(lat,lon){
       </div>
     `).join("")
 
+    /* SHOW CITY */
+    if(cityLabel){
+      document.querySelector("h1").textContent="Climix • "+cityLabel
+    }
+
+    /* AUTO REFRESH */
+    if(autoRefresh) clearInterval(autoRefresh)
+    autoRefresh=setInterval(()=>{
+      loadWeatherWithCoords(lat,lon,cityLabel)
+    },1800000) //30 min
+
   }
   catch(e){
-    feel.textContent="Failed to load data"
-    alert("Internet or API error")
+    feel.textContent="Failed to load"
+    showRetry()
   }
 }
 
+/* RETRY BUTTON */
+function showRetry(){
+  feel.innerHTML=`Failed to load 
+  <button onclick="detectLocation()" style="margin-left:8px">Retry</button>`
+}
+
+/* LOCATION */
+function detectLocation(){
+
+  feel.textContent="Requesting location..."
+
+  navigator.geolocation.getCurrentPosition(
+
+    async pos=>{
+      const lat=pos.coords.latitude
+      const lon=pos.coords.longitude
+
+      const geo=await fetch(
+        `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}`
+      ).then(r=>r.json())
+
+      const cityName=geo?.results?.[0]?.name || "Your location"
+
+      saveLocation(lat,lon,cityName)
+      loadWeatherWithCoords(lat,lon,cityName)
+    },
+
+    ()=>{
+      alert("Location blocked. Using saved/default city.")
+      if(!loadSavedLocation()){
+        city.value="New Delhi"
+        loadWeather()
+      }
+    },
+
+    {enableHighAccuracy:true,timeout:20000}
+  )
+}
+
+/* SEARCH */
 async function loadWeather(){
   if(!city.value)return alert("Enter city")
   const loc=await getCoords(city.value)
   if(!loc)return alert("City not found")
-  loadWeatherWithCoords(loc.latitude,loc.longitude)
+  saveLocation(loc.latitude,loc.longitude,loc.name)
+  loadWeatherWithCoords(loc.latitude,loc.longitude,loc.name)
 }
 
-function detectLocation(){
-
-  if(!location.protocol.includes("https")){
-    alert("Location works only on HTTPS")
-    return
+/* INIT */
+window.onload=()=>{
+  if(!loadSavedLocation()){
+    showLocationPopup()
   }
-
-  if(!navigator.geolocation){
-    alert("GPS not supported")
-    return
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    pos=>{
-      loadWeatherWithCoords(pos.coords.latitude,pos.coords.longitude)
-    },
-    ()=>{
-      alert("Permission denied. Using Delhi.")
-      city.value="New Delhi"
-      loadWeather()
-    },
-    {enableHighAccuracy:true,timeout:15000}
-  )
 }
-
-window.onload=detectLocation
 
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("sw.js")
