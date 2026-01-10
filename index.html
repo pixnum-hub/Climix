@@ -1,74 +1,54 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Climix</title>
 
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#000000">
-
 <style>
-*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
-body{background:#000;color:#fff;display:flex;justify-content:center}
-.app-frame{width:100%;max-width:420px;padding:16px}
-
-.card{
-background:rgba(255,255,255,.07);
-border-radius:18px;
-padding:18px;
-margin-bottom:14px
-}
-
-input,button{
-height:46px;border-radius:14px;border:none;font-size:1rem
-}
-input{width:55%;padding:0 12px}
-button{background:#222;color:#fff;padding:0 12px}
-
-.main-temp{text-align:center;font-size:3.5rem;font-weight:800}
-.sub{text-align:center;opacity:.8}
-.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+body{background:#000;color:#fff;font-family:system-ui;margin:0}
+.app{max-width:420px;margin:auto;padding:15px}
+.card{background:#111;padding:15px;border-radius:16px;margin-bottom:12px}
+button,input{height:42px;border:none;border-radius:12px}
+input{width:55%;padding:0 10px}
+button{background:#222;color:#fff}
+.temp{font-size:3.5rem;text-align:center}
+.status{text-align:center;opacity:.7}
 .row{display:flex;justify-content:space-between}
 </style>
 </head>
 
 <body>
-<div class="app-frame">
+<div class="app">
 
 <h2>Climix</h2>
 
 <div class="card">
 <input id="city" placeholder="Enter city">
 <button onclick="searchCity()">Search</button>
-<button onclick="detectLocation()">📍</button>
+<button onclick="detect()">📍</button>
 </div>
 
 <div class="card">
-<div id="temp" class="main-temp">--°C</div>
-<div id="status" class="sub">Waiting...</div>
-</div>
-
-<div class="card grid">
-<div>Humidity <span id="hum">--</span></div>
-<div>Wind <span id="wind">--</span></div>
-<div>Pressure <span id="press">--</span></div>
-<div>Visibility <span id="vis">--</span></div>
+<div id="temp" class="temp">--°C</div>
+<div id="status" class="status">Ready</div>
 </div>
 
 <div class="card">
-<h3>Next Hours</h3>
-<div id="hourly"></div>
-</div>
-
-<div class="card" style="text-align:center;font-size:.8rem">
-© Manik Roy 2025
+<div class="row">Humidity <span id="hum">--</span></div>
+<div class="row">Wind <span id="wind">--</span></div>
+<div class="row">Pressure <span id="press">--</span></div>
 </div>
 
 </div>
 
 <script>
-/* SAFE START */
+let loading=false
+
+function setStatus(msg){
+  status.textContent=msg
+}
+
 window.onload=()=>{
   const lat=localStorage.getItem("lat")
   const lon=localStorage.getItem("lon")
@@ -76,58 +56,79 @@ window.onload=()=>{
 }
 
 /* LOCATION */
-function detectLocation(){
-  status.textContent="Requesting GPS..."
+function detect(){
+  if(loading) return
+  loading=true
+  setStatus("Requesting location...")
+
+  const timer=setTimeout(()=>{
+    loading=false
+    setStatus("GPS timeout. Use search.")
+  },8000)
+
   navigator.geolocation.getCurrentPosition(
     p=>{
+      clearTimeout(timer)
+      loading=false
       save(p.coords.latitude,p.coords.longitude)
       loadWeather(p.coords.latitude,p.coords.longitude)
     },
     ()=>{
-      status.textContent="Permission denied"
+      clearTimeout(timer)
+      loading=false
+      setStatus("Location blocked. Use search.")
     },
-    {timeout:8000}
+    {timeout:7000}
   )
 }
 
 /* SEARCH */
 async function searchCity(){
-  if(!city.value) return
-  status.textContent="Searching..."
-  const r=await fetch(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${city.value}&count=1`
-  )
-  const j=await r.json()
-  if(!j.results) return status.textContent="City not found"
-  save(j.results[0].latitude,j.results[0].longitude)
-  loadWeather(j.results[0].latitude,j.results[0].longitude)
+  if(!city.value || loading) return
+  loading=true
+  setStatus("Searching city...")
+
+  try{
+    const r=await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${city.value}&count=1`
+    )
+    const j=await r.json()
+    if(!j.results){
+      loading=false
+      return setStatus("City not found")
+    }
+    save(j.results[0].latitude,j.results[0].longitude)
+    loadWeather(j.results[0].latitude,j.results[0].longitude)
+  }catch{
+    loading=false
+    setStatus("Network error")
+  }
 }
 
 /* WEATHER */
 async function loadWeather(lat,lon){
-  status.textContent="Loading..."
+  setStatus("Loading weather...")
+
+  const abort=new AbortController()
+  setTimeout(()=>abort.abort(),10000)
+
   try{
     const w=await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,pressure_msl,visibility&hourly=temperature_2m,time&timezone=auto`
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,pressure_msl&timezone=auto`,
+    {signal:abort.signal}
     ).then(r=>r.json())
 
     temp.textContent=Math.round(w.current.temperature_2m)+"°C"
     hum.textContent=w.current.relative_humidity_2m+"%"
-    wind.textContent=w.current.wind_speed_10m
-    press.textContent=w.current.pressure_msl
-    vis.textContent=(w.current.visibility/1000).toFixed(1)+" km"
+    wind.textContent=w.current.wind_speed_10m+" km/h"
+    press.textContent=w.current.pressure_msl+" hPa"
 
-    hourly.innerHTML=w.hourly.time.slice(0,6).map((t,i)=>`
-      <div class="row">
-      <span>${new Date(t).toLocaleTimeString([], {hour:'2-digit'})}</span>
-      <span>${Math.round(w.hourly.temperature_2m[i])}°</span>
-      </div>
-    `).join("")
-
-    status.textContent="Updated"
+    setStatus("Updated")
+    loading=false
 
   }catch{
-    status.textContent="Network error"
+    loading=false
+    setStatus("Server timeout. Retry.")
   }
 }
 
