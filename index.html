@@ -11,337 +11,130 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
 body{background:#000;color:#fff;display:flex;justify-content:center}
-body.oled{background:#000;color:#eaeaea}
-
-.app-frame{
-  width:100%;
-  max-width:420px;
-  padding:16px;
-  background:linear-gradient(180deg,#111,#000);
-}
-
-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-
-.toggle{
-  width:38px;height:38px;border-radius:50%;
-  border:none;background:#111;color:#fff;font-size:18px
-}
+.app-frame{width:100%;max-width:420px;padding:16px}
 
 .card{
-  background:rgba(255,255,255,.07);
-  backdrop-filter:blur(14px);
-  border-radius:18px;
-  padding:18px;
-  margin-bottom:14px;
+background:rgba(255,255,255,.07);
+border-radius:18px;
+padding:18px;
+margin-bottom:14px
 }
-
-.card h2{
-  font-size:1.35rem;
-  margin-bottom:10px;
-  border-bottom:1px solid rgba(255,255,255,.15);
-  padding-bottom:6px
-}
-
-.main-temp{text-align:center;font-size:3.6rem;font-weight:800}
-.sub-temp{text-align:center;font-size:1.2rem;opacity:.85}
 
 input,button{
-  height:46px;border-radius:14px;border:none;font-size:1.05rem
+height:46px;border-radius:14px;border:none;font-size:1rem
 }
 input{width:55%;padding:0 12px}
 button{background:#222;color:#fff;padding:0 12px}
 
-.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.list .row{
-  display:flex;justify-content:space-between;
-  padding:8px 12px;border-radius:12px;
-  background:rgba(255,255,255,.06);margin-bottom:6px
-}
-
-.aqi-big{text-align:center;font-size:2.6rem;font-weight:800}
-span{font-weight:600}
+.main-temp{text-align:center;font-size:3.5rem;font-weight:800}
+.sub{text-align:center;opacity:.8}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.row{display:flex;justify-content:space-between}
 </style>
 </head>
 
 <body>
 <div class="app-frame">
 
-<header>
-  <h1 id="title">Climix</h1>
-  <button class="toggle" onclick="toggleDark()">🌙</button>
-</header>
+<h2>Climix</h2>
 
 <div class="card">
-  <input id="city" placeholder="Enter city">
-  <button onclick="loadWeather()">Search</button>
-  <button onclick="detectLocation()">📍</button>
+<input id="city" placeholder="Enter city">
+<button onclick="searchCity()">Search</button>
+<button onclick="detectLocation()">📍</button>
 </div>
 
 <div class="card">
-  <div id="temp" class="main-temp">--°C</div>
-  <div id="feel" class="sub-temp">Starting...</div>
+<div id="temp" class="main-temp">--°C</div>
+<div id="status" class="sub">Waiting...</div>
+</div>
+
+<div class="card grid">
+<div>Humidity <span id="hum">--</span></div>
+<div>Wind <span id="wind">--</span></div>
+<div>Pressure <span id="press">--</span></div>
+<div>Visibility <span id="vis">--</span></div>
 </div>
 
 <div class="card">
-<h2>Location Conditions</h2>
-<div class="grid-2">
-  <div>Humidity <span id="humidity">--%</span></div>
-  <div>Pressure <span id="pressure">--</span></div>
-  <div>Wind <span id="wind">--</span></div>
-  <div>Direction <span id="windDir">--</span></div>
-  <div>Visibility <span id="vis">--</span></div>
-  <div>UV <span id="uv">--</span></div>
-  <div>Dew <span id="dew">--</span></div>
-  <div>Sunrise <span id="sunrise">--</span></div>
-  <div>Sunset <span id="sunset">--</span></div>
-</div>
+<h3>Next Hours</h3>
+<div id="hourly"></div>
 </div>
 
-<div class="card">
-<h2>AQI Details</h2>
-<div class="aqi-big" id="aqiValue">AQI --</div>
-<div id="aqiCategory" style="text-align:center"></div>
-<div id="aqiHealth" style="text-align:center;margin-bottom:10px"></div>
-
-<div class="grid-2">
-  <div>PM2.5 <span id="pm25">--</span></div>
-  <div>PM10 <span id="pm10">--</span></div>
-  <div>O₃ <span id="o3">--</span></div>
-  <div>NO₂ <span id="no2">--</span></div>
-  <div>SO₂ <span id="so2">--</span></div>
-  <div>CO <span id="co">--</span></div>
-</div>
-</div>
-
-<div class="card">
-<h2>Next 24 Hours</h2>
-<div id="hourly" class="list"></div>
-</div>
-
-<div class="card">
-<h2>7-Day Forecast</h2>
-<div id="daily" class="list"></div>
-</div>
-
-<div class="card" style="text-align:center;font-size:.85rem">
-© Manik Roy 2025. All Rights Reserved.
+<div class="card" style="text-align:center;font-size:.8rem">
+© Manik Roy 2025
 </div>
 
 </div>
 
 <script>
-/* SINGLE INSTANCE LOCK */
-if(localStorage.getItem("climix_open")){
-  alert("Climix already open in another tab")
-}else{
-  localStorage.setItem("climix_open","1")
-}
-window.addEventListener("beforeunload",()=>{
-  localStorage.removeItem("climix_open")
-})
-
-let autoRefresh=null
-let started=false
-
-function toggleDark(){document.body.classList.toggle("oled")}
-const round=v=>Math.round(v)
-
-function formatTime(t){
-  return new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
-}
-
-/* AQI */
-function calcAQI(pm){
-  if(pm<=12) return pm*4.17
-  if(pm<=35.4) return ((pm-12.1)/(35.4-12.1))*49+51
-  if(pm<=55.4) return ((pm-35.5)/(55.4-35.5))*49+101
-  if(pm<=150.4) return ((pm-55.5)/(150.4-55.5))*49+151
-  return 300
-}
-
-async function getCoords(city){
-  const r=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city}&count=1`)
-  const j=await r.json()
-  return j.results?.[0]
-}
-
-/* SAVE */
-function saveLocation(lat,lon,name){
-  localStorage.setItem("lat",lat)
-  localStorage.setItem("lon",lon)
-  localStorage.setItem("cityName",name)
-}
-
-/* LOAD SAVED */
-function loadSavedLocation(){
+/* SAFE START */
+window.onload=()=>{
   const lat=localStorage.getItem("lat")
   const lon=localStorage.getItem("lon")
-  const name=localStorage.getItem("cityName")
-  if(lat && lon){
-    loadWeatherWithCoords(lat,lon,name)
-    return true
-  }
-  return false
-}
-
-/* FALLBACK */
-function fallbackCity(){
-  if(loadSavedLocation()) return
-  city.value="New Delhi"
-  loadWeather()
-}
-
-async function loadWeatherWithCoords(lat,lon,cityName=""){
-
-  feel.textContent="Loading data..."
-
-  const apiTimer=setTimeout(()=>{
-    feel.textContent="API slow... retrying"
-    detectLocation()
-  },12000)
-
-  try{
-    const w=await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
-      `&current=temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,dew_point_2m,visibility,uv_index,wind_speed_10m,wind_direction_10m`+
-      `&hourly=temperature_2m,time`+
-      `&daily=temperature_2m_min,temperature_2m_max,sunrise,sunset,time`+
-      `&timezone=auto`
-    ).then(r=>r.json())
-
-    const a=await fetch(
-      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}`+
-      `&hourly=pm2_5,pm10,o3,no2,so2,co`
-    ).then(r=>r.json())
-
-    clearTimeout(apiTimer)
-
-    const c=w.current
-
-    temp.textContent=round(c.temperature_2m)+"°C"
-    feel.textContent="Feels like "+round(c.apparent_temperature)+"°C"
-
-    humidity.textContent=c.relative_humidity_2m+"%"
-    pressure.textContent=round(c.pressure_msl)
-    wind.textContent=c.wind_speed_10m
-    windDir.textContent=c.wind_direction_10m
-    uv.textContent=c.uv_index
-    dew.textContent=round(c.dew_point_2m)
-    vis.textContent=round(c.visibility/1000)
-    sunrise.textContent=formatTime(w.daily.sunrise[0])
-    sunset.textContent=formatTime(w.daily.sunset[0])
-
-    const pm=a.hourly.pm2_5[0]
-    const aqi=Math.round(calcAQI(pm))
-    aqiValue.textContent="AQI "+aqi
-
-    aqiCategory.textContent=
-      aqi<=50?"Good":
-      aqi<=100?"Moderate":
-      aqi<=150?"Unhealthy":
-      "Hazardous"
-
-    aqiHealth.textContent=
-      aqi<=100?"Safe outdoor":
-      aqi<=150?"Sensitive avoid":
-      "Avoid outdoor"
-
-    pm25.textContent=pm
-    pm10.textContent=a.hourly.pm10[0]
-    o3.textContent=a.hourly.o3[0]
-    no2.textContent=a.hourly.no2[0]
-    so2.textContent=a.hourly.so2[0]
-    co.textContent=a.hourly.co[0]
-
-    hourly.innerHTML=w.hourly.time.slice(0,24).map((t,i)=>`
-      <div class="row">
-        <span>${formatTime(t)}</span>
-        <span>${round(w.hourly.temperature_2m[i])}°C</span>
-      </div>`).join("")
-
-    daily.innerHTML=w.daily.time.map((d,i)=>`
-      <div class="row">
-        <span>${d}</span>
-        <span>${round(w.daily.temperature_2m_min[i])}° /
-              ${round(w.daily.temperature_2m_max[i])}°</span>
-      </div>`).join("")
-
-    if(cityName){
-      title.textContent="Climix • "+cityName
-    }
-
-    if(autoRefresh) clearInterval(autoRefresh)
-    autoRefresh=setInterval(()=>{
-      loadWeatherWithCoords(lat,lon,cityName)
-    },1800000)
-
-  }
-  catch{
-    feel.innerHTML=`Failed 
-    <button onclick="detectLocation()">Retry</button>`
-  }
+  if(lat && lon) loadWeather(lat,lon)
 }
 
 /* LOCATION */
 function detectLocation(){
-
-  feel.textContent="Requesting location..."
-
-  let timed=false
-  const timer=setTimeout(()=>{
-    timed=true
-    feel.textContent="Location timeout. Using default"
-    fallbackCity()
-  },15000)
-
+  status.textContent="Requesting GPS..."
   navigator.geolocation.getCurrentPosition(
-
-    async pos=>{
-      if(timed) return
-      clearTimeout(timer)
-
-      const lat=pos.coords.latitude
-      const lon=pos.coords.longitude
-
-      const geo=await fetch(
-        `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}`
-      ).then(r=>r.json())
-
-      const name=geo?.results?.[0]?.name || "Your location"
-
-      saveLocation(lat,lon,name)
-      loadWeatherWithCoords(lat,lon,name)
+    p=>{
+      save(p.coords.latitude,p.coords.longitude)
+      loadWeather(p.coords.latitude,p.coords.longitude)
     },
-
     ()=>{
-      clearTimeout(timer)
-      feel.textContent="Permission denied. Using default"
-      fallbackCity()
+      status.textContent="Permission denied"
     },
-
-    {enableHighAccuracy:true,timeout:10000}
+    {timeout:8000}
   )
 }
 
-async function loadWeather(){
-  if(!city.value)return alert("Enter city")
-  const loc=await getCoords(city.value)
-  if(!loc)return alert("City not found")
-  saveLocation(loc.latitude,loc.longitude,loc.name)
-  loadWeatherWithCoords(loc.latitude,loc.longitude,loc.name)
+/* SEARCH */
+async function searchCity(){
+  if(!city.value) return
+  status.textContent="Searching..."
+  const r=await fetch(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${city.value}&count=1`
+  )
+  const j=await r.json()
+  if(!j.results) return status.textContent="City not found"
+  save(j.results[0].latitude,j.results[0].longitude)
+  loadWeather(j.results[0].latitude,j.results[0].longitude)
 }
 
-/* INIT */
-window.onload=()=>{
-  if(started) return
-  started=true
-  if(!loadSavedLocation()){
-    detectLocation()
+/* WEATHER */
+async function loadWeather(lat,lon){
+  status.textContent="Loading..."
+  try{
+    const w=await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,pressure_msl,visibility&hourly=temperature_2m,time&timezone=auto`
+    ).then(r=>r.json())
+
+    temp.textContent=Math.round(w.current.temperature_2m)+"°C"
+    hum.textContent=w.current.relative_humidity_2m+"%"
+    wind.textContent=w.current.wind_speed_10m
+    press.textContent=w.current.pressure_msl
+    vis.textContent=(w.current.visibility/1000).toFixed(1)+" km"
+
+    hourly.innerHTML=w.hourly.time.slice(0,6).map((t,i)=>`
+      <div class="row">
+      <span>${new Date(t).toLocaleTimeString([], {hour:'2-digit'})}</span>
+      <span>${Math.round(w.hourly.temperature_2m[i])}°</span>
+      </div>
+    `).join("")
+
+    status.textContent="Updated"
+
+  }catch{
+    status.textContent="Network error"
   }
 }
 
-if("serviceWorker" in navigator){
-  navigator.serviceWorker.register("sw.js")
+/* SAVE */
+function save(lat,lon){
+  localStorage.setItem("lat",lat)
+  localStorage.setItem("lon",lon)
 }
 </script>
 
