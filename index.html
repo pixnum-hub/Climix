@@ -65,22 +65,25 @@ const $=id=>document.getElementById(id);
 
 function setStatus(t){ $("status").textContent=t; }
 
+/* Load last location */
 window.onload=()=>{
   const lat=localStorage.getItem("lat");
   const lon=localStorage.getItem("lon");
   if(lat && lon) loadWeather(lat,lon);
 }
 
-/* Location */
-function detect(){
+/* Detect location */
+async function detect(){
   if(busy) return;
   busy=true;
   setStatus("Requesting location...");
+
   navigator.geolocation.getCurrentPosition(
-    p=>{
+    async p=>{
       busy=false;
       save(p.coords.latitude,p.coords.longitude);
-      loadWeather(p.coords.latitude,p.coords.longitude);
+      await loadWeather(p.coords.latitude,p.coords.longitude);
+      getCityName(p.coords.latitude,p.coords.longitude);
     },
     ()=>{
       busy=false;
@@ -90,85 +93,142 @@ function detect(){
   );
 }
 
-/* Search */
+/* Reverse geocode */
+async function getCityName(lat,lon){
+  try{
+    const r=await fetch(
+      `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}`
+    );
+    const j=await r.json();
+    if(j.results && j.results.length>0){
+      $("city").value=j.results[0].name;
+    }
+  }catch{}
+}
+
+/* Search city */
 async function searchCity(){
   if(!$("city").value || busy) return;
   busy=true;
   setStatus("Searching city...");
+
   try{
-    const url=`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent($("city").value)}&count=1`;
-    const r=await fetch(url);
+    const r=await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent($("city").value)}&count=1`
+    );
     const j=await r.json();
-    if(!j.results || j.results.length===0){
-      busy=false;
-      return setStatus("City not found");
-    }
+    if(!j.results) return setStatus("City not found");
+
     const loc=j.results[0];
-    save(loc.latitude, loc.longitude);
-    $("city").value=loc.name; // Show detected city
-    loadWeather(loc.latitude, loc.longitude);
+    save(loc.latitude,loc.longitude);
+    $("city").value=loc.name;
+    loadWeather(loc.latitude,loc.longitude);
+
   }catch{
-    busy=false;
     setStatus("Search failed");
   }
+  busy=false;
 }
 
 /* Weather */
 async function loadWeather(lat,lon){
   setStatus("Loading weather...");
+
   try{
-    const url=
+    const r=await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
       `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,pressure_msl`+
-      `&hourly=temperature_2m,time`+
-      `&timezone=auto`;
+      `&hourly=temperature_2m,time&timezone=auto`
+    );
 
-    const r=await fetch(url);
     const w=await r.json();
-    console.log("Weather API response:", w); // debug
 
-    // Fallback logic
-    let tempVal="-", humVal="-", windVal="-", pressVal="-";
+    let temp="-", hum="-", wind="-", press="-";
+
     if(w.current){
-      tempVal = w.current.temperature_2m;
-      humVal  = w.current.relative_humidity_2m;
-      windVal = w.current.wind_speed_10m;
-      pressVal= w.current.pressure_msl;
-    } else if(w.hourly && Array.isArray(w.hourly.temperature_2m) && w.hourly.temperature_2m.length>0){
-      tempVal = w.hourly.temperature_2m[0];
+      temp=w.current.temperature_2m;
+      hum=w.current.relative_humidity_2m;
+      wind=w.current.wind_speed_10m;
+      press=w.current.pressure_msl;
+    }else if(w.hourly?.temperature_2m?.length){
+      temp=w.hourly.temperature_2m[0];
     }
 
-    $("temp").textContent = tempVal!=="-" ? Math.round(tempVal)+"°C" : "--°C";
-    $("hum").textContent = humVal!=="-" ? humVal+"%" : "--";
-    $("wind").textContent = windVal!=="-" ? windVal+" km/h" : "--";
-    $("press").textContent = pressVal!=="-" ? pressVal+" hPa" : "--";
+    $("temp").textContent=temp!=="-"?Math.round(temp)+"°C":"--°C";
+    $("hum").textContent=hum!=="-"?hum+"%":"--";
+    $("wind").textContent=wind!=="-"?wind+" km/h":"--";
+    $("press").textContent=press!=="-"?press+" hPa":"--";
 
-    // Draw chart if hourly data exists
-    if(w.hourly && Array.isArray(w.hourly.temperature_2m)){
+    if(w.hourly?.temperature_2m){
       drawChart(w.hourly.temperature_2m.slice(0,24));
     }
 
     loadAQI(lat,lon);
     setStatus("Updated");
-    busy=false;
-  }catch(e){
-    console.log("Weather load error:", e);
-    busy=false;
-    setStatus("Weather service busy");
+
+  }catch{
+    setStatus("Weather error");
   }
+}
+
+/* AQI (REAL calculation) */
+async function loadAQI(lat,lon){
+  try{
+    const r=await fetch(
+      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=pm2_5`
+    );
+    const a=await r.json();
+
+    const pm=a.hourly.pm2_5[0];
+    const aqi=calcAQI(pm);
+
+    $("aqi").textContent="AQI "+aqi;
+    $("aqiText").textContent=aqiLabel(aqi);
+
+  }catch{
+    $("aqi").textContent="AQI unavailable";
+  }
+}
+
+/* PM2.5 → AQI */
+function calcAQI(pm){
+  const bp=[
+    [0,12,0,50],
+    [12.1,35.4,51,100],
+    [35.5,55.4,101,150],
+    [55.5,150.4,151,200],
+    [150.5,250.4,201,300],
+    [250.5,500,301,500]
+  ];
+
+  for(const [cl,ch,il,ih] of bp){
+    if(pm>=cl && pm<=ch){
+      return Math.round(((ih-il)/(ch-cl))*(pm-cl)+il);
+    }
+  }
+  return 500;
+}
+
+function aqiLabel(a){
+  if(a<=50) return "Good 🟢";
+  if(a<=100) return "Moderate 🟡";
+  if(a<=150) return "Unhealthy (Sensitive) 🟠";
+  if(a<=200) return "Unhealthy 🔴";
+  return "Hazardous ⚫";
 }
 
 /* Chart */
 function drawChart(data){
-  const canvas=$("chart");
-  const c=canvas.getContext("2d");
-  c.clearRect(0,0,canvas.width,canvas.height);
-  const max=Math.max(...data), min=Math.min(...data);
-  const step=canvas.width/(data.length-1);
+  const c=$("chart").getContext("2d");
+  c.clearRect(0,0,350,120);
+
+  const max=Math.max(...data),min=Math.min(...data);
+  const step=350/(data.length-1);
+
   c.beginPath();
   data.forEach((v,i)=>{
     const x=i*step;
-    const y=canvas.height - ((v-min)/(max-min))*canvas.height;
+    const y=120-((v-min)/(max-min))*120;
     i?c.lineTo(x,y):c.moveTo(x,y);
   });
   c.strokeStyle="#4af";
@@ -176,29 +236,7 @@ function drawChart(data){
   c.stroke();
 }
 
-/* AQI */
-async function loadAQI(lat,lon){
-  try{
-    const url=`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=pm2_5`;
-    const r=await fetch(url);
-    const a=await r.json();
-    if(!a.hourly || !a.hourly.pm2_5) return;
-    const v=a.hourly.pm2_5[0];
-    $("aqi").textContent="PM2.5 : "+v;
-    $("aqiText").textContent=aqiLabel(v);
-  }catch{
-    $("aqi").textContent="AQI unavailable";
-  }
-}
-
-function aqiLabel(v){
-  if(v<=12) return "Good 🟢";
-  if(v<=35) return "Moderate 🟡";
-  if(v<=55) return "Unhealthy (Sensitive) 🟠";
-  if(v<=150) return "Unhealthy 🔴";
-  return "Hazardous ⚫";
-}
-
+/* Save */
 function save(lat,lon){
   localStorage.setItem("lat",lat);
   localStorage.setItem("lon",lon);
