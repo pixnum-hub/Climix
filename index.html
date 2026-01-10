@@ -60,169 +60,148 @@ canvas{width:100%}
 </div>
 
 <script>
-let busy=false
-const $=id=>document.getElementById(id)
+let busy=false;
+const $=id=>document.getElementById(id);
 
-/* STATUS */
-function setStatus(t){
-  $("status").textContent=t
-}
+function setStatus(t){ $("status").textContent=t; }
 
-/* AUTO LOAD */
 window.onload=()=>{
-  const lat=localStorage.getItem("lat")
-  const lon=localStorage.getItem("lon")
-  if(lat && lon) loadWeather(lat,lon)
+  const lat=localStorage.getItem("lat");
+  const lon=localStorage.getItem("lon");
+  if(lat && lon) loadWeather(lat,lon);
 }
 
-/* LOCATION */
+/* Location */
 function detect(){
-  if(busy) return
-  busy=true
-  setStatus("Requesting location...")
-
+  if(busy) return;
+  busy=true;
+  setStatus("Requesting location...");
   navigator.geolocation.getCurrentPosition(
     p=>{
-      busy=false
-      save(p.coords.latitude,p.coords.longitude)
-      loadWeather(p.coords.latitude,p.coords.longitude)
+      busy=false;
+      save(p.coords.latitude,p.coords.longitude);
+      loadWeather(p.coords.latitude,p.coords.longitude);
     },
     ()=>{
-      busy=false
-      setStatus("Location denied")
+      busy=false;
+      setStatus("Location denied");
     },
-    {timeout:10000}
-  )
+    {timeout:15000}
+  );
 }
 
-/* SEARCH */
+/* Search */
 async function searchCity(){
-  if(!$("city").value || busy) return
-  busy=true
-  setStatus("Searching city...")
-
+  if(!$("city").value || busy) return;
+  busy=true;
+  setStatus("Searching city...");
   try{
-    const url=`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent($("city").value)}&count=1`
-    const r=await fetch(url)
-    const j=await r.json()
-
-    if(!j.results){
-      busy=false
-      return setStatus("City not found")
+    const url=`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent($("city").value)}&count=1`;
+    const r=await fetch(url);
+    const j=await r.json();
+    if(!j.results || j.results.length===0){
+      busy=false;
+      return setStatus("City not found");
     }
-
-    save(j.results[0].latitude,j.results[0].longitude)
-    loadWeather(j.results[0].latitude,j.results[0].longitude)
-
+    const loc=j.results[0];
+    save(loc.latitude, loc.longitude);
+    $("city").value=loc.name; // Show detected city
+    loadWeather(loc.latitude, loc.longitude);
   }catch{
-    busy=false
-    setStatus("Search failed")
+    busy=false;
+    setStatus("Search failed");
   }
 }
 
-/* WEATHER */
+/* Weather */
 async function loadWeather(lat,lon){
-  setStatus("Loading weather...")
-
+  setStatus("Loading weather...");
   try{
     const url=
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
       `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,pressure_msl`+
       `&hourly=temperature_2m,time`+
-      `&timezone=auto`
+      `&timezone=auto`;
 
-    const r=await fetch(url)
-    const w=await r.json()
+    const r=await fetch(url);
+    const w=await r.json();
+    console.log("Weather API response:", w); // debug
 
-    // Use current if exists, else fallback to first hourly
-    const tempVal = w.current?.temperature_2m ?? w.hourly?.temperature_2m?.[0]
-    const humVal  = w.current?.relative_humidity_2m ?? "-"
-    const windVal = w.current?.wind_speed_10m ?? "-"
-    const pressVal= w.current?.pressure_msl ?? "-"
-
-    if(tempVal===undefined){
-      busy=false
-      return setStatus("Weather data unavailable")
+    // Fallback logic
+    let tempVal="-", humVal="-", windVal="-", pressVal="-";
+    if(w.current){
+      tempVal = w.current.temperature_2m;
+      humVal  = w.current.relative_humidity_2m;
+      windVal = w.current.wind_speed_10m;
+      pressVal= w.current.pressure_msl;
+    } else if(w.hourly && Array.isArray(w.hourly.temperature_2m) && w.hourly.temperature_2m.length>0){
+      tempVal = w.hourly.temperature_2m[0];
     }
 
-    $("temp").textContent=Math.round(tempVal)+"°C"
-    $("hum").textContent=humVal+"%"
-    $("wind").textContent=windVal+" km/h"
-    $("press").textContent=pressVal+" hPa"
+    $("temp").textContent = tempVal!=="-" ? Math.round(tempVal)+"°C" : "--°C";
+    $("hum").textContent = humVal!=="-" ? humVal+"%" : "--";
+    $("wind").textContent = windVal!=="-" ? windVal+" km/h" : "--";
+    $("press").textContent = pressVal!=="-" ? pressVal+" hPa" : "--";
 
-    if(w.hourly && w.hourly.temperature_2m){
-      drawChart(w.hourly.temperature_2m.slice(0,24))
+    // Draw chart if hourly data exists
+    if(w.hourly && Array.isArray(w.hourly.temperature_2m)){
+      drawChart(w.hourly.temperature_2m.slice(0,24));
     }
 
-    loadAQI(lat,lon)
-    setStatus("Updated")
-    busy=false
-
+    loadAQI(lat,lon);
+    setStatus("Updated");
+    busy=false;
   }catch(e){
-    console.log("Weather load error:", e)
-    busy=false
-    setStatus("Weather service busy")
+    console.log("Weather load error:", e);
+    busy=false;
+    setStatus("Weather service busy");
   }
 }
 
-/* GRAPH */
+/* Chart */
 function drawChart(data){
-  const canvas=$("chart")
-  const c=canvas.getContext("2d")
-
-  c.clearRect(0,0,canvas.width,canvas.height)
-
-  const max=Math.max(...data)
-  const min=Math.min(...data)
-  const step=canvas.width/(data.length-1)
-
-  c.beginPath()
+  const canvas=$("chart");
+  const c=canvas.getContext("2d");
+  c.clearRect(0,0,canvas.width,canvas.height);
+  const max=Math.max(...data), min=Math.min(...data);
+  const step=canvas.width/(data.length-1);
+  c.beginPath();
   data.forEach((v,i)=>{
-    const x=i*step
-    const y=canvas.height-
-      ((v-min)/(max-min))*canvas.height
-    i?c.lineTo(x,y):c.moveTo(x,y)
-  })
-
-  c.strokeStyle="#4af"
-  c.lineWidth=2
-  c.stroke()
+    const x=i*step;
+    const y=canvas.height - ((v-min)/(max-min))*canvas.height;
+    i?c.lineTo(x,y):c.moveTo(x,y);
+  });
+  c.strokeStyle="#4af";
+  c.lineWidth=2;
+  c.stroke();
 }
 
 /* AQI */
 async function loadAQI(lat,lon){
   try{
-    const url=
-      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}`+
-      `&hourly=pm2_5`
-
-    const r=await fetch(url)
-    const a=await r.json()
-
-    if(!a.hourly) return
-
-    const v=a.hourly.pm2_5[0]
-    $("aqi").textContent="PM2.5 : "+v
-    $("aqiText").textContent=aqiLabel(v)
-
+    const url=`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=pm2_5`;
+    const r=await fetch(url);
+    const a=await r.json();
+    if(!a.hourly || !a.hourly.pm2_5) return;
+    const v=a.hourly.pm2_5[0];
+    $("aqi").textContent="PM2.5 : "+v;
+    $("aqiText").textContent=aqiLabel(v);
   }catch{
-    $("aqi").textContent="AQI unavailable"
+    $("aqi").textContent="AQI unavailable";
   }
 }
 
-/* AQI LABEL */
 function aqiLabel(v){
-  if(v<=12) return "Good 🟢"
-  if(v<=35) return "Moderate 🟡"
-  if(v<=55) return "Unhealthy (Sensitive) 🟠"
-  if(v<=150) return "Unhealthy 🔴"
-  return "Hazardous ⚫"
+  if(v<=12) return "Good 🟢";
+  if(v<=35) return "Moderate 🟡";
+  if(v<=55) return "Unhealthy (Sensitive) 🟠";
+  if(v<=150) return "Unhealthy 🔴";
+  return "Hazardous ⚫";
 }
 
-/* SAVE */
 function save(lat,lon){
-  localStorage.setItem("lat",lat)
-  localStorage.setItem("lon",lon)
+  localStorage.setItem("lat",lat);
+  localStorage.setItem("lon",lon);
 }
 </script>
 
