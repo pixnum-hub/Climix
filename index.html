@@ -49,40 +49,63 @@ function setStatus(msg){
   status.textContent=msg
 }
 
+/* AUTO LOAD SAVED */
 window.onload=()=>{
   const lat=localStorage.getItem("lat")
   const lon=localStorage.getItem("lon")
   if(lat && lon) loadWeather(lat,lon)
 }
 
-/* LOCATION */
+/* LOCATION DETECT */
 function detect(){
   if(loading) return
   loading=true
-  setStatus("Requesting location...")
+  setStatus("Requesting location permission...")
+
+  /* Check permission state */
+  if(navigator.permissions){
+    navigator.permissions.query({name:"geolocation"}).then(p=>{
+      if(p.state==="denied"){
+        loading=false
+        return setStatus("Location blocked. Enable in browser settings.")
+      }
+    })
+  }
 
   const timer=setTimeout(()=>{
     loading=false
-    setStatus("GPS timeout. Use search.")
-  },8000)
+    setStatus("GPS timeout. Turn ON location.")
+  },10000)
 
   navigator.geolocation.getCurrentPosition(
-    p=>{
+
+    pos=>{
       clearTimeout(timer)
       loading=false
-      save(p.coords.latitude,p.coords.longitude)
-      loadWeather(p.coords.latitude,p.coords.longitude)
+      save(pos.coords.latitude,pos.coords.longitude)
+      loadWeather(pos.coords.latitude,pos.coords.longitude)
     },
-    ()=>{
+
+    err=>{
       clearTimeout(timer)
       loading=false
-      setStatus("Location blocked. Use search.")
+
+      if(err.code===1){
+        setStatus("Permission denied. Enable location.")
+      }
+      else if(err.code===2){
+        setStatus("Position unavailable")
+      }
+      else{
+        setStatus("GPS timeout")
+      }
     },
-    {timeout:7000}
+
+    {enableHighAccuracy:true,timeout:9000,maximumAge:0}
   )
 }
 
-/* SEARCH */
+/* SEARCH CITY */
 async function searchCity(){
   if(!city.value || loading) return
   loading=true
@@ -93,12 +116,15 @@ async function searchCity(){
       `https://geocoding-api.open-meteo.com/v1/search?name=${city.value}&count=1`
     )
     const j=await r.json()
+
     if(!j.results){
       loading=false
       return setStatus("City not found")
     }
+
     save(j.results[0].latitude,j.results[0].longitude)
     loadWeather(j.results[0].latitude,j.results[0].longitude)
+
   }catch{
     loading=false
     setStatus("Network error")
