@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Climix</title>
+
+<style>
+body{background:#000;color:#fff;font-family:system-ui;margin:0}
+.app{max-width:420px;margin:auto;padding:15px}
+.card{background:#111;padding:16px;border-radius:16px;margin-bottom:12px}
+input,button{height:42px;border:none;border-radius:12px}
+input{width:55%;padding:0 10px}
+button{background:#222;color:#fff}
+.temp{font-size:3.5rem;text-align:center}
+.status{text-align:center;opacity:.7;margin-top:5px}
+.row{display:flex;justify-content:space-between;padding:6px 0}
+.aqi{text-align:center;font-size:1.5rem}
+canvas{width:100%}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<h2>Climix</h2>
+
+<div class="card">
+<input id="city" placeholder="Enter city">
+<button onclick="searchCity()">Search</button>
+<button onclick="detect()">📍</button>
+</div>
+
+<div class="card">
+<div id="temp" class="temp">--°C</div>
+<div id="status" class="status">Ready</div>
+</div>
+
+<div class="card">
+<div class="row">Humidity <span id="hum">--</span></div>
+<div class="row">Wind <span id="wind">--</span></div>
+<div class="row">Pressure <span id="press">--</span></div>
+</div>
+
+<div class="card">
+<h3>Air Quality</h3>
+<div id="aqi" class="aqi">--</div>
+<div id="aqiText" class="status"></div>
+</div>
+
+<div class="card">
+<h3>Next 24 Hours</h3>
+<canvas id="chart" width="350" height="120"></canvas>
+</div>
+
+<div class="card" style="text-align:center;font-size:.8rem">
+© Manik Roy 2025
+</div>
+
+</div>
+
+<script>
+let busy=false;
+const $=id=>document.getElementById(id);
+
+function setStatus(t){ $("status").textContent=t; }
+
+window.onload=()=>{
+  const lat=localStorage.getItem("lat");
+  const lon=localStorage.getItem("lon");
+  if(lat && lon) loadWeather(lat,lon);
+}
+
+/* Location */
+function detect(){
+  if(busy) return;
+  busy=true;
+  setStatus("Requesting location...");
+  navigator.geolocation.getCurrentPosition(
+    p=>{
+      busy=false;
+      save(p.coords.latitude,p.coords.longitude);
+      loadWeather(p.coords.latitude,p.coords.longitude);
+    },
+    ()=>{
+      busy=false;
+      setStatus("Location denied");
+    },
+    {timeout:15000}
+  );
+}
+
+/* Search */
+async function searchCity(){
+  if(!$("city").value || busy) return;
+  busy=true;
+  setStatus("Searching city...");
+  try{
+    const url=`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent($("city").value)}&count=1`;
+    const r=await fetch(url);
+    const j=await r.json();
+    if(!j.results || j.results.length===0){
+      busy=false;
+      return setStatus("City not found");
+    }
+    const loc=j.results[0];
+    save(loc.latitude, loc.longitude);
+    $("city").value=loc.name; // Show detected city
+    loadWeather(loc.latitude, loc.longitude);
+  }catch{
+    busy=false;
+    setStatus("Search failed");
+  }
+}
+
+/* Weather */
+async function loadWeather(lat,lon){
+  setStatus("Loading weather...");
+  try{
+    const url=
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
+      `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,pressure_msl`+
+      `&hourly=temperature_2m,time`+
+      `&timezone=auto`;
+
+    const r=await fetch(url);
+    const w=await r.json();
+    console.log("Weather API response:", w); // debug
+
+    // Fallback logic
+    let tempVal="-", humVal="-", windVal="-", pressVal="-";
+    if(w.current){
+      tempVal = w.current.temperature_2m;
+      humVal  = w.current.relative_humidity_2m;
+      windVal = w.current.wind_speed_10m;
+      pressVal= w.current.pressure_msl;
+    } else if(w.hourly && Array.isArray(w.hourly.temperature_2m) && w.hourly.temperature_2m.length>0){
+      tempVal = w.hourly.temperature_2m[0];
+    }
+
+    $("temp").textContent = tempVal!=="-" ? Math.round(tempVal)+"°C" : "--°C";
+    $("hum").textContent = humVal!=="-" ? humVal+"%" : "--";
+    $("wind").textContent = windVal!=="-" ? windVal+" km/h" : "--";
+    $("press").textContent = pressVal!=="-" ? pressVal+" hPa" : "--";
+
+    // Draw chart if hourly data exists
+    if(w.hourly && Array.isArray(w.hourly.temperature_2m)){
+      drawChart(w.hourly.temperature_2m.slice(0,24));
+    }
+
+    loadAQI(lat,lon);
+    setStatus("Updated");
+    busy=false;
+  }catch(e){
+    console.log("Weather load error:", e);
+    busy=false;
+    setStatus("Weather service busy");
+  }
+}
+
+/* Chart */
+function drawChart(data){
+  const canvas=$("chart");
+  const c=canvas.getContext("2d");
+  c.clearRect(0,0,canvas.width,canvas.height);
+  const max=Math.max(...data), min=Math.min(...data);
+  const step=canvas.width/(data.length-1);
+  c.beginPath();
+  data.forEach((v,i)=>{
+    const x=i*step;
+    const y=canvas.height - ((v-min)/(max-min))*canvas.height;
+    i?c.lineTo(x,y):c.moveTo(x,y);
+  });
+  c.strokeStyle="#4af";
+  c.lineWidth=2;
+  c.stroke();
+}
+
+/* AQI */
+async function loadAQI(lat,lon){
+  try{
+    const url=`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&hourly=pm2_5`;
+    const r=await fetch(url);
+    const a=await r.json();
+    if(!a.hourly || !a.hourly.pm2_5) return;
+    const v=a.hourly.pm2_5[0];
+    $("aqi").textContent="PM2.5 : "+v;
+    $("aqiText").textContent=aqiLabel(v);
+  }catch{
+    $("aqi").textContent="AQI unavailable";
+  }
+}
+
+function aqiLabel(v){
+  if(v<=12) return "Good 🟢";
+  if(v<=35) return "Moderate 🟡";
+  if(v<=55) return "Unhealthy (Sensitive) 🟠";
+  if(v<=150) return "Unhealthy 🔴";
+  return "Hazardous ⚫";
+}
+
+function save(lat,lon){
+  localStorage.setItem("lat",lat);
+  localStorage.setItem("lon",lon);
+}
+</script>
+
+</body>
+</html>
