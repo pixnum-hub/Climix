@@ -14,7 +14,8 @@ input{width:55%;padding:0 10px}
 button{background:#222;color:#fff}
 .temp{font-size:3.5rem;text-align:center}
 .status{text-align:center;opacity:.7}
-.row{display:flex;justify-content:space-between}
+.row{display:flex;justify-content:space-between;padding:6px 0}
+.aqi{font-size:1.4rem;text-align:center}
 </style>
 </head>
 
@@ -40,6 +41,23 @@ button{background:#222;color:#fff}
 <div class="row">Pressure <span id="press">--</span></div>
 </div>
 
+<!-- AQI CARD -->
+<div class="card">
+<h3>Air Quality</h3>
+<div id="aqi" class="aqi">--</div>
+<div id="aqiText" class="status"></div>
+</div>
+
+<!-- 7 DAY FORECAST -->
+<div class="card">
+<h3>7-Day Forecast</h3>
+<div id="forecast"></div>
+</div>
+
+<div class="card" style="text-align:center;font-size:.8rem">
+© Manik Roy 2025
+</div>
+
 </div>
 
 <script>
@@ -49,63 +67,41 @@ function setStatus(msg){
   status.textContent=msg
 }
 
-/* AUTO LOAD SAVED */
+/* AUTO LOAD */
 window.onload=()=>{
   const lat=localStorage.getItem("lat")
   const lon=localStorage.getItem("lon")
   if(lat && lon) loadWeather(lat,lon)
 }
 
-/* LOCATION DETECT */
+/* LOCATION */
 function detect(){
   if(loading) return
   loading=true
-  setStatus("Requesting location permission...")
-
-  /* Check permission state */
-  if(navigator.permissions){
-    navigator.permissions.query({name:"geolocation"}).then(p=>{
-      if(p.state==="denied"){
-        loading=false
-        return setStatus("Location blocked. Enable in browser settings.")
-      }
-    })
-  }
+  setStatus("Requesting location...")
 
   const timer=setTimeout(()=>{
     loading=false
-    setStatus("GPS timeout. Turn ON location.")
+    setStatus("GPS timeout. Use search.")
   },10000)
 
   navigator.geolocation.getCurrentPosition(
-
-    pos=>{
+    p=>{
       clearTimeout(timer)
       loading=false
-      save(pos.coords.latitude,pos.coords.longitude)
-      loadWeather(pos.coords.latitude,pos.coords.longitude)
+      save(p.coords.latitude,p.coords.longitude)
+      loadWeather(p.coords.latitude,p.coords.longitude)
     },
-
-    err=>{
+    ()=>{
       clearTimeout(timer)
       loading=false
-
-      if(err.code===1){
-        setStatus("Permission denied. Enable location.")
-      }
-      else if(err.code===2){
-        setStatus("Position unavailable")
-      }
-      else{
-        setStatus("GPS timeout")
-      }
+      setStatus("Location blocked. Use search.")
     },
-
-    {enableHighAccuracy:true,timeout:9000,maximumAge:0}
+    {timeout:9000}
   )
 }
 
-/* SEARCH CITY */
+/* SEARCH */
 async function searchCity(){
   if(!city.value || loading) return
   loading=true
@@ -131,17 +127,16 @@ async function searchCity(){
   }
 }
 
-/* WEATHER */
+/* WEATHER + AQI */
 async function loadWeather(lat,lon){
   setStatus("Loading weather...")
 
-  const abort=new AbortController()
-  setTimeout(()=>abort.abort(),10000)
-
   try{
     const w=await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,pressure_msl&timezone=auto`,
-    {signal:abort.signal}
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
+    `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,pressure_msl`+
+    `&daily=temperature_2m_min,temperature_2m_max,time`+
+    `&timezone=auto`
     ).then(r=>r.json())
 
     temp.textContent=Math.round(w.current.temperature_2m)+"°C"
@@ -149,13 +144,56 @@ async function loadWeather(lat,lon){
     wind.textContent=w.current.wind_speed_10m+" km/h"
     press.textContent=w.current.pressure_msl+" hPa"
 
+    forecast.innerHTML=w.daily.time.map((d,i)=>`
+      <div class="row">
+        <span>${formatDate(d)}</span>
+        <span>${Math.round(w.daily.temperature_2m_min[i])}° /
+              ${Math.round(w.daily.temperature_2m_max[i])}°</span>
+      </div>
+    `).join("")
+
+    loadAQI(lat,lon)
     setStatus("Updated")
     loading=false
 
   }catch{
     loading=false
-    setStatus("Server timeout. Retry.")
+    setStatus("Server error")
   }
+}
+
+/* AQI */
+async function loadAQI(lat,lon){
+  try{
+    const a=await fetch(
+    `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}`+
+    `&current=us_aqi`
+    ).then(r=>r.json())
+
+    const v=a.current.us_aqi
+    aqi.textContent="AQI : "+v
+    aqiText.textContent=aqiLabel(v)
+
+  }catch{
+    aqi.textContent="AQI unavailable"
+  }
+}
+
+/* AQI LABEL */
+function aqiLabel(v){
+  if(v<=50) return "Good 🟢"
+  if(v<=100) return "Moderate 🟡"
+  if(v<=150) return "Unhealthy (Sensitive) 🟠"
+  if(v<=200) return "Unhealthy 🔴"
+  if(v<=300) return "Very Unhealthy 🟣"
+  return "Hazardous ⚫"
+}
+
+/* FORMAT */
+function formatDate(d){
+  return new Date(d).toLocaleDateString(undefined,{
+    weekday:"short",month:"short",day:"numeric"
+  })
 }
 
 /* SAVE */
